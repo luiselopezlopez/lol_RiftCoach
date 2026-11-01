@@ -26,6 +26,18 @@ dotnet publish src/LoLCoach/LoLCoach.csproj -c Release -r win-x64 --self-contain
 
 Abre el ejecutable `LoLCoach.exe` de la carpeta de publicacion.
 
+## Ventanas
+
+La interfaz se compone de ventanas flotantes dentro de la ventana principal. Cada una se mueve arrastrando su barra de titulo, se redimensiona desde los bordes izquierdo, derecho, inferior o las esquinas inferiores, y se cierra con la X. El menu **Ventanas** permite volver a abrir cualquier ventana cerrada o restablecer la disposicion por defecto.
+
+1. **Campeon y miniguia**: campeon elegido, miniguia de habilidades y estadisticas propias en partida.
+2. **Entrenamiento**: historial de los ultimos 30 consejos.
+3. **Campeones**: un campeon por columna en horizontal, con los rivales primero.
+4. **Sesion, partida y depuracion**: Iniciar/Pausar y pestañas de sesion, datos de partida, depuracion de API y la captura de pantalla enviada.
+5. **Recomendacion de campeon y posicion**: cuestionario. Se abre por defecto solo si no hay perfil guardado.
+
+Posicion, tamaño, orden y estado abierto/cerrado de cada ventana se guardan en `Layout` dentro de `localsettings.json` al cerrar el programa y se restauran al abrirlo.
+
 ## Primer uso
 
 1. Configura Endpoint, Model y ApiKey en el archivo local indicado abajo. No compartas claves por chat ni en el repositorio.
@@ -69,7 +81,7 @@ Con los cuatro rangos de habilidades disponibles se calculan los puntos sin gast
 
 El catalogo no contiene precios ni arboles de componentes: la compra asequible y los enfriamientos deben comprobarse en la tienda y los iconos visibles. No se inventan precios ni se garantiza que las builds suministradas sean optimas o validas para todas las situaciones. El contrato de respuestas sigue siendo una orden de una linea; los consejos separados descritos en el prompt todavia no se procesan.
 
-Las ordenes de combate indican el objetivo y como atacar: `Ataca Garen con E+Q` o `Ataca Garen con 3+Q`. El combo se decide segun las habilidades aprendidas, los objetos equipados y su disponibilidad visible; el orden de subir habilidades no se interpreta como un combo de ataque. Si no hay habilidades disponibles con certeza, se indica `Ataca Garen con clic derecho`. Las torres y la retirada usan ordenes concretas como `Ataca Torre`, `Alejate de Torre` y `Huye de Garen`, sin recomendar ataques bajo una torre enemiga sin proteccion de una oleada aliada.
+Las ordenes de combate indican el objetivo y como atacar: `Ataca Garen con E+Q` o `Ataca Garen con 3+Q`. El combo se decide segun las habilidades aprendidas, los objetos equipados y su disponibilidad visible; el orden de subir habilidades no se interpreta como un combo de ataque. Si no hay habilidades disponibles con certeza, se indica `Ataca Garen con clic derecho`. Las torres y la retirada usan ordenes concretas como `Ataca Torre`, `Alejate de Torre` y `Huye de Garen`, sin recomendar ataques bajo una torre enemiga sin proteccion de una oleada aliada. Para distinguir torres aliadas de enemigas, el prompt usa el color de la barra de vida y del minimapa (azul aliada, rojo enemiga), quien recibe los disparos y `lado_mapa`, que indica el equipo del jugador (ORDER azul con base abajo a la izquierda, CHAOS rojo con base arriba a la derecha). Si la torre no se puede identificar, no se ordena atacarla.
 
 En cada turno el prompt pide observar el minimapa para decidir ayudas, defensa de torres y objetivos de jungla antes de atacar subditos por rutina. Puede indicar `Apoya Bot`, `Apoya Mid`, `Ve a Dragon`, `Ataca Dragon`, `Ve a Azul` o `Ataca Gromp` solo con evidencia visible, una ruta viable y sin abandonar una defensa urgente. La orden generica `Farmea` se rechaza. El detalle de imagen `high` mejora el tratamiento de iconos pequenos y puede aumentar tokens, coste y latencia; no recupera informacion que ya se perdio al comprimir o reducir la captura. No se deducen posiciones ocultas, campamentos vivos o reapariciones solo por el tiempo de partida. Estas reglas y el contrato se prueban con transporte controlado; la calidad de las decisiones sobre un minimapa real requiere evaluacion en partida.
 
@@ -77,7 +89,7 @@ En cada turno el prompt pide observar el minimapa para decidir ayudas, defensa d
 
 El contexto de cada orden incluye una fase tactica estimada con minutos y nivel: early mientras el tiempo es menor de 14 minutos y el nivel menor de 9; mid a partir de cualquiera de esos umbrales; late desde 28 minutos con nivel 14 o superior, o desde 35 minutos aunque el campeon vaya retrasado. Si faltan ambos datos, la fase es desconocida. No es una medida exacta del estado global: el prompt debe adaptar intercambios, apoyo, objetivos y posicion al rol, habilidades aprendidas, objetos y ventaja de los rivales.
 
-Al detectar una partida verificada se prepara una miniguia de hasta 140 palabras, antes de comenzar las capturas e instrucciones. Aparece en un panel separado y describe el papel del campeon, pasiva, Q/W/E/R, cuando usarlas, un combo sencillo, una precaucion frente a los enemigos y el plan de early/mid/late. Las descripciones se obtienen de Data Dragon es_ES en la version del catalogo de progresion y se guardan en cache. Si faltan, el modelo debe indicar la limitacion sin inventar habilidades. La ficha disponible se reutiliza como contexto de las siguientes ordenes.
+Al detectar una partida verificada se prepara una miniguia de unas 180 palabras (se rechazan respuestas desbordadas de mas de 320 palabras o 3200 caracteres), antes de comenzar las capturas e instrucciones. Aparece en un panel separado y describe el papel del campeon, pasiva, Q/W/E/R, cuando usarlas, un combo sencillo, una precaucion frente a los enemigos y el plan de early/mid/late. Las descripciones se obtienen de Data Dragon es_ES en la version del catalogo de progresion y se guardan en cache. Si faltan, el modelo debe indicar la limitacion sin inventar habilidades. La ficha disponible se reutiliza como contexto de las siguientes ordenes.
 
 La guia tiene un plazo total de 30 segundos y supone una consulta adicional de pago al modelo por inicio de sesion, aparte de la comprobacion de disponibilidad y del contador de capturas. Si falla o agota el plazo, se muestra el aviso y continua el entrenamiento con una captura fresca. Pausar cancela tambien la guia. No se lee automaticamente en voz para evitar interrumpir las instrucciones de combate. Las compras, mejoras, combos y restricciones de bots/PvP se mantienen.
 
@@ -97,7 +109,7 @@ El endpoint inicial es el facilitado por el usuario. `gpt-6-luna` se trata como 
 
 - La deteccion previa de partida sigue consultando LoL cada cinco segundos. Una vez iniciada, el ciclo es secuencial: captura y estadisticas nuevas, envio, respuesta completa y siguiente captura inmediata. No hay temporizador de envio, precapturas pendientes ni peticiones simultaneas. No es un flujo de video.
 - Las respuestas de mas de 10 segundos se cancelan/descartan para evitar consejos caducados. Pausar detiene solicitudes y voz; los mensajes ya recibidos permanecen visibles y los borradores incompletos se marcan como no vigentes. Iniciar crea una sesion nueva con su contador nuevo, sin borrar el historial.
-- Cada respuesta tiene una entrada con hora y estado. Sus fragmentos actualizan esa misma entrada; el siguiente consejo aparece debajo. La vista se desplaza automaticamente al mensaje mas reciente. El historial se conserva en memoria durante la vida de la ventana, sin limite de mensajes ni escritura en disco; al cerrar la aplicacion se pierde.
+- Cada respuesta tiene una entrada con hora y estado. Sus fragmentos actualizan esa misma entrada; el siguiente consejo aparece debajo. La vista se desplaza automaticamente al mensaje mas reciente. El historial se conserva en memoria con los ultimos 30 mensajes (los mas antiguos se eliminan), sin escritura en disco; al cerrar la aplicacion se pierde.
 - Solo las respuestas completas, de una linea y hasta 30 palabras se pueden leer en voz alta. El validador de formato no verifica la exactitud ni sustituye una revision humana o de Riot.
 - La inferencia dispone de hasta 2048 tokens de generacion para evitar truncados del modelo, aunque el consejo visible sigue limitado a 30 palabras. Las respuestas truncadas o filtradas muestran un motivo especifico. El maximo de tokens no implica que se consuman siempre todos y no garantiza que cualquier modelo complete la respuesta dentro del plazo de frescura.
 - El autoplay de voz lee cada consejo final nuevo, sin el anterior enfriamiento de 10 segundos. No acumula una cola: cancela la frase previa cuando llega otra valida. Evita repeticiones exactas consecutivas y Pausar silencia inmediatamente.
@@ -126,7 +138,7 @@ Los datos se guardan bajo `%LOCALAPPDATA%/LoLCoach`: `localsettings.json` con co
 dotnet test LoLCoach.slnx
 ```
 
-Las pruebas no usan claves reales ni llaman a Azure. Incluyen 6561 perfiles posibles, transporte Azure controlado, configuracion/migracion/cifrado, filtro JSON, bots/PvP/datos ambiguos, pixeles sin censura, captura fresca/negra, reloj falso para sesion continua y deteccion, orden de arranque y registros HTTP sin secretos. Se verifica que el siguiente paquete se captura inmediatamente tras la respuesta sin avanzar un temporizador, y que solo hay una inferencia activa. DashboardTests comprueba historial retenido tras pausa/reinicio, 22 mensajes sin eliminacion, autodesplazamiento, arranque, datos, depuracion y voz. Requiere una sesion grafica Windows activa; sus PNG solo muestran datos de prueba.
+Las pruebas no usan claves reales ni llaman a Azure. Incluyen 6561 perfiles posibles, transporte Azure controlado, configuracion/migracion/cifrado, filtro JSON, bots/PvP/datos ambiguos, pixeles sin censura, captura fresca/negra, reloj falso para sesion continua y deteccion, orden de arranque y registros HTTP sin secretos. Se verifica que el siguiente paquete se captura inmediatamente tras la respuesta sin avanzar un temporizador, y que solo hay una inferencia activa. DashboardTests comprueba historial retenido tras pausa/reinicio, limite de 30 mensajes, autodesplazamiento, arranque, datos, depuracion y voz. Requiere una sesion grafica Windows activa; sus PNG solo muestran datos de prueba.
 
 Para verificar ademas los retratos reales de Data Dragon en la prueba de escritorio:
 

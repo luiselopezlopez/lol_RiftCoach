@@ -261,6 +261,9 @@ public class IntegrationBoundaryTests
         Assert.Contains("Nunca respondas Farmea", systemPrompt);
         Assert.Contains("El tiempo de partida por sí solo no prueba", systemPrompt);
         Assert.Contains("Un icono ambiguo o una zona en niebla no confirma disponibilidad.", systemPrompt);
+        Assert.Contains("# IDENTIFICAR TORRES", systemPrompt);
+        Assert.Contains("torre aliada tiene barra de vida azul y una torre enemiga barra de vida roja", systemPrompt);
+        Assert.Contains("Nunca ordenes atacar una torre aliada.", systemPrompt);
         Assert.DoesNotContain("evita repetirlas literalmente", systemPrompt);
         Assert.Equal(2048, requestBody.RootElement.GetProperty("max_completion_tokens").GetInt32());
         var image = requestBody.RootElement.GetProperty("messages")[1].GetProperty("content")[1].GetProperty("image_url");
@@ -296,7 +299,7 @@ public class IntegrationBoundaryTests
         Assert.Equal(1, abilityCalls);
         using var request = JsonDocument.Parse(handler.Body);
         var messages = request.RootElement.GetProperty("messages");
-        Assert.Contains("Máximo 140 palabras", messages[0].GetProperty("content").GetString());
+        Assert.Contains("Máximo 180 palabras", messages[0].GetProperty("content").GetString());
         using var data = JsonDocument.Parse(messages[1].GetProperty("content").GetString()!);
         Assert.Equal("Garen", data.RootElement.GetProperty("champion").GetString());
         Assert.Equal(5, data.RootElement.GetProperty("ficha_habilidades").GetProperty("Abilities").GetArrayLength());
@@ -322,6 +325,37 @@ public class IntegrationBoundaryTests
             await Assert.ThrowsAsync<ArgumentException>(() => catalog.GetAbilityReferenceAsync("../private", "16.21.1", default));
         }
         finally { if (System.IO.Directory.Exists(directory)) System.IO.Directory.Delete(directory, true); }
+    }
+
+    [Theory]
+    [InlineData(170, true)]
+    [InlineData(400, false)]
+    public async Task InitialGuideToleratesSlightlyLongAnswersButRejectsRunawayOutput(int words, bool accepted)
+    {
+        var content = string.Join(' ', Enumerable.Repeat("palabra", words));
+        var handler = new GuideHandler($$"""{"id":"guide-test","object":"chat.completion","created":1,"model":"test","choices":[{"index":0,"message":{"role":"assistant","content":"{{content}}"},"finish_reason":"stop"}]}""");
+        using var service = new FoundryCoachingService(new(), "fake-key", new HttpClient(handler),
+            abilityReferenceFactory: (champion, patch, _) => Task.FromResult(new ChampionAbilityReference(champion, patch, [])));
+        var state = new PracticeState(new GameSnapshot(120, 3, 500, 800, 600), TestObservations.Practice, 0);
+        var create = service.CreateGuideAsync(state, new(PlayerRole.Top, "Garen", []), default);
+        if (accepted) Assert.Equal(content, await create);
+        else await Assert.ThrowsAsync<ModelOutputException>(() => create);
+    }
+
+    [Theory]
+    [InlineData("ORDER", "azul", "abajo a la izquierda")]
+    [InlineData("CHAOS", "rojo", "arriba a la derecha")]
+    public void MapSideComesFromTheLocalPlayerTeam(string team, string color, string ownBase)
+    {
+        using var active = JsonDocument.Parse("""{"riotId":"local#private"}""");
+        using var game = JsonDocument.Parse("{}");
+        using var players = JsonDocument.Parse($$"""[{"riotId":"local#private","team":"{{team}}"}]""");
+        var snapshot = GameSnapshot.Parse(active.RootElement, game.RootElement, players.RootElement);
+        var side = Assert.IsType<MapSide>(MatchTacticalContext.Side(snapshot));
+        Assert.Equal(color, side.Equipo);
+        Assert.Equal(ownBase, side.BasePropia);
+        Assert.DoesNotContain(team, JsonSerializer.Serialize(snapshot));
+        Assert.Null(MatchTacticalContext.Side(GameSnapshot.Parse(active.RootElement, game.RootElement)));
     }
 
     private sealed class GuideHandler(string? responseBody = null) : HttpMessageHandler

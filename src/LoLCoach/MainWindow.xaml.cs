@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
+using LoLCoach.Controls;
+using LoLCoach.Services;
 using LoLCoach.ViewModels;
 
 namespace LoLCoach;
@@ -7,6 +9,8 @@ namespace LoLCoach;
 public partial class MainWindow : Window
 {
     private readonly DashboardViewModel viewModel;
+    private readonly Dictionary<string, FloatingPanel> panels;
+    private readonly Dictionary<string, PanelLayout> defaultLayout;
     private bool closing;
     private bool shutdownStarted;
     private readonly bool startAutomatically;
@@ -19,12 +23,50 @@ public partial class MainWindow : Window
         this.viewModel = viewModel;
         DataContext = this.viewModel;
         this.startAutomatically = startAutomatically;
+        panels = new()
+        {
+            ["champion"] = ChampionPanel, ["training"] = TrainingPanel, ["champions"] = ChampionsPanel,
+            ["session"] = SessionPanel, ["recommendation"] = RecommendationPanel
+        };
+        defaultLayout = panels.Select((entry, index) => (entry.Key, Layout: entry.Value.GetLayout() with { ZIndex = index + 1 }))
+            .ToDictionary(entry => entry.Key, entry => entry.Layout);
+        viewModel.ProfileSaved += (_, _) => { TrainingPanel.IsOpen = true; TrainingPanel.BringToFront(); };
         Loaded += OnLoaded;
     }
 
+    public IReadOnlyDictionary<string, FloatingPanel> Panels => panels;
+
     private async void OnLoaded(object sender, RoutedEventArgs args)
     {
+        ApplyLayout(viewModel.LoadPanelLayout());
         if (startAutomatically) await viewModel.InitializeAsync();
+    }
+
+    private void ApplyLayout(IReadOnlyDictionary<string, PanelLayout> saved)
+    {
+        foreach (var (id, panel) in panels)
+        {
+            if (saved.TryGetValue(id, out var layout)) { panel.ApplyLayout(layout); continue; }
+            var fallback = defaultLayout[id];
+            if (id == "recommendation") fallback = fallback with { IsOpen = viewModel.SelectedChampion is null };
+            panel.ApplyLayout(fallback);
+        }
+    }
+
+    public IReadOnlyDictionary<string, PanelLayout> CaptureLayout()
+    {
+        var order = panels.OrderBy(entry => System.Windows.Controls.Panel.GetZIndex(entry.Value)).Select(entry => entry.Key).ToList();
+        return panels.ToDictionary(entry => entry.Key, entry => entry.Value.GetLayout() with { ZIndex = order.IndexOf(entry.Key) + 1 });
+    }
+
+    private void OnResetLayout(object sender, RoutedEventArgs args)
+    {
+        foreach (var (id, panel) in panels) panel.ApplyLayout(defaultLayout[id] with { IsOpen = true });
+    }
+
+    private void OnWorkspaceSizeChanged(object sender, SizeChangedEventArgs args)
+    {
+        foreach (var panel in panels.Values.Where(panel => panel.IsOpen)) panel.KeepInside();
     }
 
     private void OnHistorySizeChanged(object sender, SizeChangedEventArgs args)
@@ -33,22 +75,13 @@ public partial class MainWindow : Window
         _ = Dispatcher.BeginInvoke(new Action(AdviceHistoryScroll.ScrollToEnd), System.Windows.Threading.DispatcherPriority.Background);
     }
 
-    private void OnTrainingSizeChanged(object sender, SizeChangedEventArgs args)
-    {
-        if (PlayerStatsPanel is null || StatsColumn is null) return;
-        var compact = args.NewSize.Width < 980;
-        StatsColumn.Width = new GridLength(compact ? 0 : 310);
-        System.Windows.Controls.Grid.SetColumn(PlayerStatsPanel, compact ? 0 : 1);
-        System.Windows.Controls.Grid.SetRow(PlayerStatsPanel, compact ? 1 : 0);
-        System.Windows.Controls.Grid.SetColumnSpan(PlayerStatsPanel, compact ? 3 : 1);
-    }
-
     private async void OnClosing(object? sender, CancelEventArgs args)
     {
         if (closing) return;
         args.Cancel = true;
         if (shutdownStarted) return;
         shutdownStarted = true;
+        viewModel.SavePanelLayout(CaptureLayout());
         await viewModel.ShutdownAsync();
         closing = true;
         _ = Dispatcher.BeginInvoke(new Action(Close));

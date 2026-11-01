@@ -51,6 +51,7 @@ public partial class AdviceMessage : ObservableObject
 
 public partial class DashboardViewModel : ObservableObject, IDisposable
 {
+    public const int MaxMessages = 30;
     private readonly SettingsService store;
     private readonly ISpeechService speech;
     private readonly WindowCaptureService capture = new();
@@ -115,7 +116,6 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     public bool CanGoBack => QuestionIndex > 0 && !ShowResults;
     private PlayerProfile Profile => new(SelectedChampion?.Role ?? PlayerRole.Top, SelectedChampion?.Id ?? "", Questions.Select(question => question.SelectedIndex).ToArray());
 
-    [ObservableProperty] private int selectedTab = 1;
     [ObservableProperty] private int questionIndex;
     [ObservableProperty] private bool showResults;
     [ObservableProperty] private string resultSummary = "";
@@ -198,8 +198,25 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [RelayCommand] private void SaveProfile()
     {
         if (SelectedChampion is null) return;
-        try { settings = store.Load() with { Profile = Profile }; store.Save(settings); SelectedTab = 1; }
+        try { settings = store.Load() with { Profile = Profile }; store.Save(settings); ProfileSaved?.Invoke(this, EventArgs.Empty); }
         catch (Exception exception) when (IsExpected(exception)) { Status = "No se pudo guardar el perfil."; }
+    }
+
+    public event EventHandler? ProfileSaved;
+
+    internal void AppendMessage(AdviceMessage message)
+    {
+        Messages.Add(message);
+        while (Messages.Count > MaxMessages) Messages.RemoveAt(0);
+    }
+
+    public IReadOnlyDictionary<string, PanelLayout> LoadPanelLayout() => store.LoadLayout();
+
+    public void SavePanelLayout(IReadOnlyDictionary<string, PanelLayout> layout)
+    {
+        try { store.SaveLayout(layout); }
+        catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        { Status = "No se pudo guardar la disposición de las ventanas."; }
     }
 
     public async Task InitializeAsync()
@@ -250,7 +267,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
                     {
                         foreach (var message in Messages) message.IsLatest = false;
                         activeMessage = new AdviceMessage { IsLatest = true };
-                        Messages.Add(activeMessage);
+                        AppendMessage(activeMessage);
                     }
                     activeMessage.Text = result.Text;
                     activeMessage.State = result.IsFinal ? "Completo" : "Borrador";

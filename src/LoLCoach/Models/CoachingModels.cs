@@ -10,6 +10,8 @@ public sealed record GameSnapshot(double? GameTime, int? Level, double? Health, 
     public PlayerGameDetails? Player { get; init; }
     [System.Text.Json.Serialization.JsonIgnore]
     public IReadOnlyList<RosterPlayer> Roster { get; init; } = [];
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? OwnTeam { get; init; }
 
     public static GameSnapshot Parse(JsonElement activePlayer, JsonElement gameStats, JsonElement players = default)
     {
@@ -26,9 +28,18 @@ public sealed record GameSnapshot(double? GameTime, int? Level, double? Health, 
             GameMode = Text(gameStats, "gameMode"),
             MapName = Text(gameStats, "mapName"),
             Player = ParsePlayerDetails(activePlayer, stats, players, Number, Text),
-            Roster = ParseRoster(activePlayer, players, Number, Text)
+            Roster = ParseRoster(activePlayer, players, Number, Text),
+            OwnTeam = ParseOwnTeam(activePlayer, players, Text)
         };
         return snapshot;
+    }
+
+    private static string? ParseOwnTeam(JsonElement activePlayer, JsonElement players, Func<JsonElement, string, string?> text)
+    {
+        var riotId = text(activePlayer, "riotId");
+        if (players.ValueKind != JsonValueKind.Array || string.IsNullOrEmpty(riotId)) return null;
+        var team = text(players.EnumerateArray().FirstOrDefault(player => text(player, "riotId") == riotId), "team");
+        return team is "ORDER" or "CHAOS" ? team : null;
     }
 
     private static IReadOnlyList<RosterPlayer> ParseRoster(JsonElement activePlayer, JsonElement players,

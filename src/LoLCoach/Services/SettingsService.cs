@@ -14,6 +14,13 @@ public sealed record AppSettings
     public PlayerProfile? Profile { get; init; }
 }
 
+public sealed record PanelLayout(double Left, double Top, double Width, double Height, bool IsOpen, int ZIndex = 0)
+{
+    [JsonIgnore]
+    public bool IsValid => double.IsFinite(Left) && double.IsFinite(Top) && double.IsFinite(Width) && double.IsFinite(Height)
+        && Width > 0 && Height > 0;
+}
+
 public sealed class SettingsService
 {
     private readonly string directory;
@@ -31,6 +38,7 @@ public sealed class SettingsService
         public string? ApiKey { get; init; }
         public int RequestLimit { get; init; } = 12;
         public PlayerProfile? Profile { get; init; }
+        public Dictionary<string, PanelLayout>? Layout { get; init; }
     }
 
     private sealed class OptionalProfileConverter : JsonConverter<PlayerProfile>
@@ -97,6 +105,24 @@ public sealed class SettingsService
         WriteLocalSettings(local with { Endpoint = settings.Endpoint, Model = settings.Deployment,
             RequestLimit = settings.RequestLimit, Profile = settings.Profile });
     }
+
+    public IReadOnlyDictionary<string, PanelLayout> LoadLayout()
+    {
+        try
+        {
+            return (ReadLocalSettings().Layout ?? [])
+                .Where(entry => entry.Value is { IsValid: true })
+                .ToDictionary(entry => entry.Key, entry => entry.Value);
+        }
+        catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
+        {
+            return new Dictionary<string, PanelLayout>();
+        }
+    }
+
+    public void SaveLayout(IReadOnlyDictionary<string, PanelLayout> layout)
+        => WriteLocalSettings(ReadLocalSettings() with { Layout = layout.Where(entry => entry.Value.IsValid)
+            .ToDictionary(entry => entry.Key, entry => entry.Value) });
 
     public void SaveKey(string key)
     {

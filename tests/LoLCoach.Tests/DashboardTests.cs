@@ -1,8 +1,9 @@
-using System.IO;
+﻿using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -52,8 +53,8 @@ public class DashboardTests
                 Assert.Equal(1, model.ProbeCalls);
                 Assert.Equal(0, reader.Calls);
                 Assert.Equal(0, captureCalls);
-                var tabs = ((Grid)window.Content).Children.OfType<TabControl>().Single();
-                Assert.DoesNotContain(tabs.Items.Cast<TabItem>(), tab => tab.Header?.ToString() == "Conexión");
+                Assert.Equal(5, window.Panels.Count);
+                Assert.DoesNotContain(window.Panels.Values, panel => panel.Title == "Conexión");
                 model.Reply.SetResult("Disponible.");
                 await reader.Started.Task.WaitAsync(TimeSpan.FromSeconds(3));
                 await RenderAsync();
@@ -113,9 +114,9 @@ public class DashboardTests
                 await viewModel.InitializeAsync();
                 Assert.Equal(1, model.ProbeCalls);
                 window.Width = 1120; await RenderAsync(); SaveScreenshot(window, "dashboard-1120");
-                viewModel.SelectedTab = 2; await RenderAsync(); SaveScreenshot(window, "game-data-1120");
+                SaveScreenshot(window, "game-data-1120");
                 window.Width = 760; await RenderAsync(); SaveScreenshot(window, "game-data-760");
-                viewModel.SelectedTab = 3; await RenderAsync(); SaveScreenshot(window, "api-debug-760");
+                SaveScreenshot(window, "api-debug-760");
                 for (var index = 0; index < 250; index++) model.Report!(new(DateTimeOffset.UtcNow, "Azure OpenAI", "POST", "/openai/v1/chat/completions", 200, 20, "Correcto"));
                 Assert.Equal(200, viewModel.ModelDiagnostics.Count);
                 viewModel.ClearDiagnosticsCommand.Execute(null);
@@ -124,7 +125,6 @@ public class DashboardTests
                 Assert.Same(firstMessage, Assert.Single(viewModel.Messages));
                 Assert.Equal("Avanza.", viewModel.Messages[0].Text);
                 await viewModel.StartCommand.ExecuteAsync(null);
-                viewModel.SelectedTab = 1;
                 await RenderAsync();
                 Assert.Equal(2, viewModel.Messages.Count);
                 Assert.Same(firstMessage, viewModel.Messages[0]);
@@ -140,9 +140,9 @@ public class DashboardTests
                 Assert.Equal(Color.FromRgb(20, 93, 160), Assert.IsType<SolidColorBrush>(latestAdviceText.Foreground).Color);
                 window.Width = 760; await RenderAsync(); SaveScreenshot(window, "advice-history-760");
                 window.Width = 1120; await RenderAsync(); SaveScreenshot(window, "advice-history-1120");
-                var statsPanel = Assert.IsType<StackPanel>(window.FindName("PlayerStatsPanel"));
-                Assert.Equal(1, Grid.GetColumn(statsPanel));
-                Assert.Equal(0, Grid.GetRow(statsPanel));
+                var columns = FindAll<Border>(window.ChampionsPanel).Where(border => border.DataContext is PlayerStatsRow && border.Name == "Column").ToList();
+                Assert.Equal("Rival", ((PlayerStatsRow)columns[0].DataContext).Player.Relation);
+                Assert.True(columns[1].TranslatePoint(new Point(), window.ChampionsPanel).X > columns[0].TranslatePoint(new Point(), window.ChampionsPanel).X);
                 Assert.NotNull(FindTextBlock(window, "Ashe · Rival"));
                 var enemyScores = Assert.IsType<TextBlock>(FindTextBlock(window, "", block =>
                     block.DataContext is PlayerStatsRow row && row.Player.Relation == "Rival"
@@ -160,26 +160,26 @@ public class DashboardTests
                 await RenderAsync();
                 var playersScroll = Assert.IsType<ScrollViewer>(window.FindName("PlayersScroll"));
                 Assert.Equal(10, viewModel.Players.Count);
-                Assert.True(playersScroll.ScrollableHeight > 0);
-                playersScroll.ScrollToEnd(); await RenderAsync();
-                Assert.True(playersScroll.VerticalOffset >= playersScroll.ScrollableHeight - 1);
+                Assert.True(playersScroll.ScrollableWidth > 0);
+                playersScroll.ScrollToRightEnd(); await RenderAsync();
+                Assert.True(playersScroll.HorizontalOffset >= playersScroll.ScrollableWidth - 1);
                 window.Width = 760; await RenderAsync();
-                Assert.Equal(0, Grid.GetColumn(statsPanel));
-                Assert.Equal(1, Grid.GetRow(statsPanel));
-                Assert.True(statsPanel.ActualWidth > 600);
-                statsPanel.BringIntoView(); await RenderAsync(); SaveScreenshot(window, "champion-stats-760");
+                Assert.All(window.Panels.Values, panel => Assert.True(panel.Left <= window.Workspace.ActualWidth - 80));
+                Assert.True(window.ChampionsPanel.ActualWidth <= window.Workspace.ActualWidth);
+                SaveScreenshot(window, "champion-stats-760");
                 window.Width = 1120; await RenderAsync();
-                for (var index = 0; index < 20; index++)
-                    viewModel.Messages.Add(new AdviceMessage { Text = $"Consejo de prueba {index + 3}: compara tu vida y el oro disponible antes de decidir.", State = "Completo" });
+                for (var index = 0; index < 40; index++)
+                    viewModel.AppendMessage(new AdviceMessage { Text = $"Consejo de prueba {index + 3}: compara tu vida y el oro disponible antes de decidir.", State = "Completo" });
                 await RenderAsync();
                 var historyScroll = Assert.IsType<ScrollViewer>(window.FindName("AdviceHistoryScroll"));
                 Assert.True(historyScroll.ScrollableHeight > 0);
                 Assert.True(historyScroll.VerticalOffset >= historyScroll.ScrollableHeight - 1);
-                Assert.Equal(22, viewModel.Messages.Count);
-                Assert.Same(firstMessage, viewModel.Messages[0]);
+                Assert.Equal(DashboardViewModel.MaxMessages, viewModel.Messages.Count);
+                Assert.DoesNotContain(firstMessage, viewModel.Messages);
+                Assert.StartsWith("Consejo de prueba 13:", viewModel.Messages[0].Text);
                 SaveScreenshot(window, "advice-history-scrolled-1120");
 
-                viewModel.SelectedTab = 0;
+                window.RecommendationPanel.IsOpen = true; await RenderAsync();
                 for (var index = 0; index < 8; index++)
                 {
                     viewModel.CurrentQuestion.SelectedIndex = 0;
@@ -208,12 +208,56 @@ public class DashboardTests
                     Assert.Equal(0, resumedModel.StreamCalls);
                 }
                 finally { await pending.ShutdownAsync(); }
+                await VerifyFloatingWindowsAsync(store);
             }
             finally
             {
                 window.Close(); await RenderAsync(); store.Reset(); application.Shutdown();
             }
         });
+    }
+
+    private static async Task VerifyFloatingWindowsAsync(SettingsService store)
+    {
+        var window = new MainWindow(new DashboardViewModel(store, false, speechService: new RecordingSpeech()), false);
+        MainWindow? restored = null;
+        var closed = false;
+        window.Show();
+        try
+        {
+            await RenderAsync();
+            var panel = window.TrainingPanel;
+            var thumbs = FindAll<Thumb>(panel).ToList();
+            thumbs.Single(thumb => thumb.Name == "PART_TitleBar").RaiseEvent(new DragDeltaEventArgs(40, 30));
+            thumbs.Single(thumb => Equals(thumb.Tag, "BottomRight")).RaiseEvent(new DragDeltaEventArgs(50, 40));
+            thumbs.Single(thumb => Equals(thumb.Tag, "Left")).RaiseEvent(new DragDeltaEventArgs(-20, 0));
+            await RenderAsync();
+            Assert.Equal(new PanelLayout(366, 38, 510, 440, true), panel.GetLayout() with { ZIndex = 0 });
+            thumbs.Single(thumb => thumb.Name == "PART_TitleBar").RaiseEvent(new DragDeltaEventArgs(-5000, -5000));
+            Assert.True(panel.Left + panel.Width >= 80); Assert.Equal(0, panel.Top);
+            var expected = panel.GetLayout();
+            FindAll<ButtonBase>(panel).Single(button => button.Name == "PART_Close").RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            await RenderAsync();
+            Assert.False(panel.IsOpen); Assert.Equal(Visibility.Collapsed, panel.Visibility);
+            var menuItem = FindLogical<MenuItem>(window.MainMenu).Single(item => Equals(item.Header, "Entrenamiento"));
+            Assert.False(menuItem.IsChecked);
+            window.Close(); closed = true; await RenderAsync();
+
+            restored = new MainWindow(new DashboardViewModel(store, false, speechService: new RecordingSpeech()), false);
+            restored.Show(); await RenderAsync();
+            var layout = restored.TrainingPanel.GetLayout();
+            Assert.False(layout.IsOpen);
+            Assert.Equal((expected.Left, expected.Top, expected.Width, expected.Height), (layout.Left, layout.Top, layout.Width, layout.Height));
+            FindLogical<MenuItem>(restored.MainMenu).Single(item => Equals(item.Header, "Entrenamiento")).IsChecked = true;
+            await RenderAsync();
+            Assert.True(restored.TrainingPanel.IsOpen); Assert.Equal(Visibility.Visible, restored.TrainingPanel.Visibility);
+            Assert.True(Panel.GetZIndex(restored.TrainingPanel) > restored.Panels.Values.Where(item => item != restored.TrainingPanel).Max(Panel.GetZIndex));
+        }
+        finally
+        {
+            if (!closed) window.Close();
+            restored?.Close(); await RenderAsync();
+        }
     }
 
     private sealed class RecordingSpeech : ISpeechService
@@ -305,6 +349,18 @@ public class DashboardTests
         return completion.Task.WaitAsync(TimeSpan.FromSeconds(45));
     }
     private static async Task RenderAsync() => await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+    private static IEnumerable<T> FindLogical<T>(DependencyObject parent) where T : DependencyObject
+    {
+        if (parent is T match) yield return match;
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+            foreach (var found in FindLogical<T>(child)) yield return found;
+    }
+    private static IEnumerable<T> FindAll<T>(DependencyObject parent) where T : DependencyObject
+    {
+        if (parent is T match) yield return match;
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+            foreach (var child in FindAll<T>(VisualTreeHelper.GetChild(parent, index))) yield return child;
+    }
     private static TextBlock? FindTextBlock(DependencyObject parent, string text, Func<TextBlock, bool>? match = null)
     {
         if (parent is TextBlock block && (match?.Invoke(block) ?? block.Text == text)) return block;
