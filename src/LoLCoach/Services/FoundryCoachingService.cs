@@ -184,7 +184,7 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
                 "No supongas posiciones, vida, habilidades aprendidas o enfriamientos enemigos que no aparecen en la imagen. " +
                 "Un rival muerto no es amenaza inmediata, pero no inventes cuándo reaparecerá. Si no hay datos de rivales, no inventes emparejamientos.")
         ];
-        foreach (var previousAdvice in recentAdvice.TakeLast(5))
+        foreach (var previousAdvice in recentAdvice.TakeLast(CoachingSession.MaxHistory))
             messages.Add(new AssistantChatMessage(previousAdvice));
         messages.Add(new UserChatMessage(ChatMessageContentPart.CreateTextPart(context),
             ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(observation.Jpeg), "image/jpeg", ChatImageDetailLevel.High)));

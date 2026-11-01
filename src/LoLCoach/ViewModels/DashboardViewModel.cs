@@ -51,7 +51,7 @@ public partial class AdviceMessage : ObservableObject
 
 public partial class DashboardViewModel : ObservableObject, IDisposable
 {
-    public const int MaxMessages = 30;
+    public const int MaxMessages = CoachingSession.MaxHistory;
     private readonly SettingsService store;
     private readonly ISpeechService speech;
     private readonly WindowCaptureService capture = new();
@@ -145,7 +145,8 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string ownLevel = "-";
     [ObservableProperty] private string ownHealth = "- / -";
     [ObservableProperty] private string ownGold = "-";
-    [ObservableProperty] private string ownHealthColor = "#52635A";
+    [ObservableProperty] private string ownHealthColor = "#A09B8C";
+    [ObservableProperty] private double ownHealthRatio;
     [ObservableProperty] private string miniGuide = "";
     [ObservableProperty] private string gamePhase = "Sin fase disponible";
     [ObservableProperty] private string rosterStatus = "Esperando datos de jugadores";
@@ -235,7 +236,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         Requests = 0; ClearAdvice(); Scene = null;
         ApiStatus = "Sin consultar"; ApiLastUpdate = "Sin datos"; ApiFields.Clear(); Players.Clear();
         OwnChampion = "Tu campeón"; OwnVitals = "Sin datos de partida"; RosterStatus = "Esperando datos de jugadores";
-        OwnLevel = "-"; OwnHealth = "- / -"; OwnGold = "-"; OwnHealthColor = "#52635A";
+        OwnLevel = "-"; OwnHealth = "- / -"; OwnGold = "-"; OwnHealthColor = "#A09B8C"; OwnHealthRatio = 0;
         MiniGuide = ""; GamePhase = "Sin fase disponible";
         ModelStatus = "Comprobando"; ModelReply = "";
         active = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
@@ -282,7 +283,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
                 }
             });
             var recentAdvice = Messages.Where(message => message.State == "Completo")
-                .Select(message => message.Text).TakeLast(5).ToArray();
+                .Select(message => message.Text).TakeLast(CoachingSession.MaxHistory).ToArray();
             await new AutomaticCoachingWorkflow(client, token => createReader(ReportDiagnostic, token), createSource,
                 waitForSpeech: WaitForSpeechAsync)
                 .RunAsync(Profile, ContinuousSending ? null : settings.RequestLimit, progress, active.Token, recentAdvice);
@@ -327,16 +328,17 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         OwnHealth = $"{snapshot.Health?.ToString("0") ?? "-"} / {snapshot.MaxHealth?.ToString("0") ?? "-"}";
         OwnGold = snapshot.Gold?.ToString("0") ?? "-";
         OwnHealthColor = HealthColor(snapshot.Health, snapshot.MaxHealth);
+        OwnHealthRatio = snapshot.Health is { } health && snapshot.MaxHealth is > 0 ? Math.Clamp(health / snapshot.MaxHealth.Value, 0, 1) : 0;
         GamePhase = $"Fase estimada: {MatchTacticalContext.EstimatePhase(snapshot).Phase}";
         Players.Clear();
         foreach (var player in snapshot.Roster.OrderBy(player => player.Relation == "Rival" ? 0 : player.IsOwn ? 1 : 2))
             Players.Add(new(player));
         RosterStatus = Players.Count == 0 ? "Esperando datos de jugadores" : $"{Players.Count} campeones · K/D/A y súbditos (CS)";
         ApiFields.Clear();
-        ApiFields.Add(new("Campeón", OwnChampion)); ApiFields.Add(new("Nivel", OwnLevel, "#145DA0"));
+        ApiFields.Add(new("Campeón", OwnChampion)); ApiFields.Add(new("Nivel", OwnLevel, "#0AC8B9"));
         ApiFields.Add(new("Vida", OwnHealth, OwnHealthColor));
         ApiFields.Add(new("Vida restante", snapshot.Health is not null && snapshot.MaxHealth is > 0 ? $"{snapshot.Health / snapshot.MaxHealth * 100:0}%" : "-", OwnHealthColor));
-        ApiFields.Add(new("Oro disponible", OwnGold, "#8A6514")); ApiFields.Add(new("Tiempo de partida", $"{snapshot.GameTime:0} s"));
+        ApiFields.Add(new("Oro disponible", OwnGold, "#C89B3C")); ApiFields.Add(new("Tiempo de partida", $"{snapshot.GameTime:0} s"));
         ApiFields.Add(new("Rivales", "Bots verificados"));
         if (snapshot.Player is { } details)
         {
@@ -355,8 +357,8 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     }
 
     private static string HealthColor(double? health, double? maxHealth)
-        => health is not { } current || maxHealth is not > 0 ? "#52635A"
-            : current / maxHealth < 0.3 ? "#AC4539" : current / maxHealth < 0.5 ? "#8A6514" : "#205E4F";
+        => health is not { } current || maxHealth is not > 0 ? "#A09B8C"
+            : current / maxHealth < 0.3 ? "#E84057" : current / maxHealth < 0.5 ? "#C89B3C" : "#46C37B";
 
     private void ReportDiagnostic(ApiDiagnostic entry)
     {

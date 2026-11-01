@@ -44,7 +44,7 @@ public class CoachingSessionTests
         var clock = new FakeTimeProvider();
         var client = new ControlledClient();
         var progress = new Collector();
-        var priorAdvice = Enumerable.Range(1, 6).Select(index => $"Ataca objetivo {index}.").ToArray();
+        var priorAdvice = Enumerable.Range(1, CoachingSession.MaxHistory + 2).Select(index => $"Ataca objetivo {index}.").ToArray();
         var run = new CoachingSession(new FakeSource(clock), client, clock, priorAdvice).RunAsync(Profile, 2, progress, default);
         Assert.Equal(0, await client.Started.Reader.ReadAsync());
         clock.Advance(TimeSpan.FromSeconds(2));
@@ -55,8 +55,8 @@ public class CoachingSessionTests
         await run.WaitAsync(TimeSpan.FromSeconds(3));
         Assert.Equal(1, client.MaxActive);
         Assert.Equal(2, client.Calls);
-        Assert.Equal(priorAdvice.TakeLast(5), client.History[0]);
-        Assert.Equal(priorAdvice.TakeLast(4).Append("Ataca súbdito."), client.History[1]);
+        Assert.Equal(priorAdvice.TakeLast(30), client.History[0]);
+        Assert.Equal(priorAdvice.TakeLast(29).Append("Ataca súbdito."), client.History[1]);
     }
 
     [Fact]

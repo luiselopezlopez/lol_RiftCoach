@@ -12,7 +12,8 @@ public sealed class CoachingSession(IObservationSource source, ICoachingClient c
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
     private readonly Queue<string> adviceHistory = new((recentAdvice ?? Array.Empty<string>())
-        .Where(AdviceValidator.IsValid).TakeLast(5));
+        .Where(AdviceValidator.IsValid).TakeLast(MaxHistory));
+    public const int MaxHistory = 30;
     public static readonly TimeSpan MaximumAge = TimeSpan.FromSeconds(10);
 
     public async Task RunAsync(PlayerProfile profile, int? requestLimit, IProgress<SessionUpdate> progress,
@@ -57,7 +58,7 @@ public sealed class CoachingSession(IObservationSource source, ICoachingClient c
                     {
                         progress.Report(new("Consejo disponible", new(finalText, true, age), Requests: requests));
                         adviceHistory.Enqueue(finalText);
-                        while (adviceHistory.Count > 5) adviceHistory.Dequeue();
+                        while (adviceHistory.Count > MaxHistory) adviceHistory.Dequeue();
                     }
                     else
                         progress.Report(new("Respuesta descartada", Requests: requests, ClearAdvice: true));

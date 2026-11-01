@@ -2,116 +2,73 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:icons="http://metro.mahapps.com/winfx/xaml/iconpacks"
         xmlns:controls="clr-namespace:LoLCoach.Controls"
         Title="Rift Coach" Width="1120" Height="840" MinWidth="760" MinHeight="640"
-        Background="#F3F5F1" Foreground="#24312D" FontFamily="Candara" FontSize="16"
-        WindowStartupLocation="CenterScreen" Closing="OnClosing">
+        Background="#010A13" Foreground="#F0E6D2" FontFamily="Spiegel, Segoe UI" FontSize="15"
+        TextOptions.TextFormattingMode="Display" UseLayoutRounding="True"
+        WindowStartupLocation="CenterScreen" Closing="OnClosing" SourceInitialized="OnSourceInitialized">
   <Window.Resources>
-    <BooleanToVisibilityConverter x:Key="BoolVisibility" />
-    <controls:EmptyToVisibleConverter x:Key="EmptyVisibility" />
-    <Style TargetType="Button">
-      <Setter Property="Background" Value="#E4EAE5"/><Setter Property="Foreground" Value="#24312D"/>
-      <Setter Property="Padding" Value="16,10"/><Setter Property="Margin" Value="0,0,10,8"/>
-      <Setter Property="BorderThickness" Value="0"/><Setter Property="MinHeight" Value="42"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
-        <Border x:Name="Surface" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
-          <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        </Border>
-        <ControlTemplate.Triggers>
-          <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Opacity" Value="0.82"/></Trigger>
-          <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="#AC4539"/><Setter TargetName="Surface" Property="BorderThickness" Value="2"/></Trigger>
-          <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Surface" Property="Opacity" Value="0.45"/></Trigger>
-        </ControlTemplate.Triggers>
-      </ControlTemplate></Setter.Value></Setter>
-    </Style>
-    <Style x:Key="Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-      <Setter Property="Background" Value="#205E4F"/><Setter Property="Foreground" Value="#F7FAF6"/>
-    </Style>
-    <Style TargetType="TextBlock"><Setter Property="TextWrapping" Value="Wrap"/></Style>
-    <Style TargetType="TextBox"><Setter Property="Padding" Value="10,8"/><Setter Property="Margin" Value="0,4,0,14"/>
-      <Setter Property="BorderBrush" Value="#9BA99F"/><Setter Property="BorderThickness" Value="1"/></Style>
-    <Style TargetType="ComboBox"><Setter Property="Padding" Value="8"/><Setter Property="Margin" Value="0,4,0,14"/></Style>
-    <Style TargetType="CheckBox"><Setter Property="Margin" Value="0,8,0,14"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
-    <Style TargetType="TabItem"><Setter Property="Padding" Value="22,12"/><Setter Property="FontFamily" Value="Bahnschrift"/></Style>
-    <Style TargetType="TabControl"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/></Style>
-    <Style TargetType="DataGrid">
-      <Setter Property="GridLinesVisibility" Value="Horizontal"/><Setter Property="HorizontalGridLinesBrush" Value="#CFD9D0"/>
-      <Setter Property="Background" Value="#FAFBF8"/>
-    </Style>
-    <Style TargetType="DataGridCell"><Setter Property="Padding" Value="10,8"/><Setter Property="BorderThickness" Value="0"/></Style>
-    <Style TargetType="DataGridColumnHeader"><Setter Property="Padding" Value="10,8"/><Setter Property="Background" Value="#E5EBE4"/></Style>
-    <Style x:Key="Heading" TargetType="TextBlock"><Setter Property="FontFamily" Value="Bahnschrift"/><Setter Property="FontSize" Value="24"/><Setter Property="Margin" Value="0,0,0,16"/></Style>
-    <Style x:Key="Label" TargetType="TextBlock"><Setter Property="FontSize" Value="14"/><Setter Property="Foreground" Value="#52635A"/></Style>
-    <Style x:Key="StatValue" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="14"/>
-      <Style.Triggers><DataTrigger Binding="{Binding IsHighlighted}" Value="True">
-        <Setter Property="FontWeight" Value="Bold"/><Setter Property="Foreground" Value="{Binding HighlightColor}"/>
-      </DataTrigger></Style.Triggers>
-    </Style>
-    <Style x:Key="AdviceText" TargetType="TextBlock">
-      <Setter Property="FontFamily" Value="Bahnschrift"/><Setter Property="FontSize" Value="21"/><Setter Property="LineHeight" Value="29"/>
-      <Setter Property="Foreground" Value="#24312D"/><Setter Property="TextWrapping" Value="Wrap"/>
-      <Style.Triggers><DataTrigger Binding="{Binding IsLatest}" Value="True">
-        <Setter Property="FontSize" Value="54"/><Setter Property="LineHeight" Value="67.5"/>
-        <Setter Property="Foreground" Value="#145DA0"/><Setter Property="FontWeight" Value="SemiBold"/>
-      </DataTrigger></Style.Triggers>
-    </Style>
-    <Style x:Key="QuizPanel" TargetType="StackPanel">
-      <Setter Property="Visibility" Value="Visible"/>
-      <Style.Triggers><DataTrigger Binding="{Binding ShowResults}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
-    </Style>
-    <Style TargetType="controls:FloatingPanel">
-      <Setter Property="Background" Value="#F7F9F5"/>
-      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="controls:FloatingPanel">
-        <Border Background="{TemplateBinding Background}" BorderBrush="#9FB0A3" BorderThickness="1" CornerRadius="6">
-          <Border.Effect><DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.22" Color="#24312D"/></Border.Effect>
-          <Grid>
-            <Grid.RowDefinitions><RowDefinition Height="36"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <Border Background="#DDE5DD" CornerRadius="6,6,0,0" BorderBrush="#C5D0C6" BorderThickness="0,0,0,1">
-              <Grid>
-                <Thumb x:Name="PART_TitleBar" Cursor="SizeAll" ToolTip="Arrastra para mover">
-                  <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
-                </Thumb>
-                <TextBlock Text="{TemplateBinding Title}" FontFamily="Bahnschrift" FontSize="15" Margin="12,0,44,0" VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" IsHitTestVisible="False"/>
-                <Button x:Name="PART_Close" HorizontalAlignment="Right" MinHeight="0" Width="30" Height="26" Padding="0" Margin="0,0,5,0"
-                        Background="Transparent" ToolTip="Cerrar ventana" AutomationProperties.Name="Cerrar ventana">
-                  <icons:PackIconMaterial Kind="Close" Width="12" Height="12"/>
-                </Button>
-              </Grid>
-            </Border>
-            <ContentPresenter Grid.Row="1" Margin="14,10,14,14"/>
-            <Thumb Grid.RowSpan="2" Tag="Left" Width="6" HorizontalAlignment="Left" Cursor="SizeWE" Margin="0,36,0,12">
-              <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
-            </Thumb>
-            <Thumb Grid.RowSpan="2" Tag="Right" Width="6" HorizontalAlignment="Right" Cursor="SizeWE" Margin="0,36,0,12">
-              <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
-            </Thumb>
-            <Thumb Grid.Row="1" Tag="Bottom" Height="6" VerticalAlignment="Bottom" Cursor="SizeNS" Margin="12,0,12,0">
-              <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
-            </Thumb>
-            <Thumb Grid.Row="1" Tag="BottomLeft" Width="12" Height="12" HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="SizeNESW">
-              <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
-            </Thumb>
-            <Thumb Grid.Row="1" Tag="BottomRight" Width="14" Height="14" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE" ToolTip="Redimensionar">
-              <Thumb.Template><ControlTemplate TargetType="Thumb">
-                <Border Background="Transparent"><Path Data="M12,2 L2,12 M12,7 L7,12" Stroke="#8C9C90" StrokeThickness="1.2" Margin="0,0,2,2"/></Border>
-              </ControlTemplate></Thumb.Template>
-            </Thumb>
-          </Grid>
-        </Border>
-      </ControlTemplate></Setter.Value></Setter>
-    </Style>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Themes/Hextech.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <BooleanToVisibilityConverter x:Key="BoolVisibility" />
+      <controls:EmptyToVisibleConverter x:Key="EmptyVisibility" />
+      <Style x:Key="StatValue" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14"/><Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Style.Triggers><DataTrigger Binding="{Binding IsHighlighted}" Value="True">
+          <Setter Property="FontWeight" Value="Bold"/><Setter Property="Foreground" Value="{Binding HighlightColor}"/>
+          <Setter Property="FontFamily" Value="{StaticResource NumberFont}"/>
+        </DataTrigger></Style.Triggers>
+      </Style>
+      <Style x:Key="AdviceText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource NumberFont}"/><Setter Property="FontSize" Value="21"/><Setter Property="LineHeight" Value="29"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/><Setter Property="TextWrapping" Value="Wrap"/>
+        <Style.Triggers><DataTrigger Binding="{Binding IsLatest}" Value="True">
+          <Setter Property="FontFamily" Value="{StaticResource DisplayFont}"/>
+          <Setter Property="FontSize" Value="54"/><Setter Property="LineHeight" Value="67.5"/>
+          <Setter Property="Foreground" Value="{StaticResource Gold2Brush}"/><Setter Property="FontWeight" Value="Bold"/>
+        </DataTrigger></Style.Triggers>
+      </Style>
+      <Style x:Key="QuizPanel" TargetType="StackPanel">
+        <Setter Property="Visibility" Value="Visible"/>
+        <Style.Triggers><DataTrigger Binding="{Binding ShowResults}" Value="True"><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+      </Style>
+      <!-- Small framed tile for one vital stat. -->
+      <Style x:Key="StatTile" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource VoidBrush}"/><Setter Property="BorderBrush" Value="{StaticResource Gold5Brush}"/>
+        <Setter Property="BorderThickness" Value="1"/><Setter Property="Padding" Value="10,6,10,8"/><Setter Property="Margin" Value="0,0,6,0"/>
+      </Style>
+      <Style x:Key="StatNumber" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource NumberFont}"/><Setter Property="FontSize" Value="20"/><Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Margin" Value="0,2,0,0"/>
+      </Style>
+    </ResourceDictionary>
   </Window.Resources>
   <Grid>
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <Border Padding="20,8" Background="#E5EBE4" BorderBrush="#C5D0C6" BorderThickness="0,0,0,1">
-      <DockPanel>
+
+    <!-- Header -->
+    <Grid Background="{StaticResource HeaderBackgroundBrush}">
+      <Border Height="1" VerticalAlignment="Bottom" Background="{StaticResource GoldFadeBothBrush}"/>
+      <DockPanel Margin="18,10,20,10">
         <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" Margin="24,0,0,0" VerticalAlignment="Center">
-          <TextBlock Text="{Binding ProfileLabel}" FontWeight="Bold" TextAlignment="Right"/>
+          <TextBlock Text="{Binding ProfileLabel}" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="15"
+                     Foreground="{StaticResource Gold1Brush}" TextAlignment="Right"/>
           <TextBlock Text="{Binding Status}" Style="{StaticResource Label}" TextAlignment="Right" MaxWidth="400"/>
         </StackPanel>
-        <TextBlock Text="RIFT COACH" FontFamily="Bahnschrift" FontSize="24" VerticalAlignment="Center" Margin="0,0,24,0"/>
-        <Menu x:Name="MainMenu" Background="Transparent" VerticalAlignment="Center" FontFamily="Bahnschrift" FontSize="15">
+        <Viewbox Width="38" Height="38" Margin="0,0,12,0" VerticalAlignment="Center">
+          <Canvas Width="34" Height="34">
+            <Path Data="M17,1 L33,17 L17,33 L1,17 Z" Fill="{StaticResource VoidBrush}" Stroke="{StaticResource GoldMetalBrush}" StrokeThickness="2"/>
+            <Path Data="M17,6 L28,17 L17,28 L6,17 Z" Stroke="{StaticResource Gold4Brush}" StrokeThickness="1"/>
+            <Path Data="M17,10.5 L23.5,17 L17,23.5 L10.5,17 Z" Fill="{StaticResource HextechCoreBrush}">
+              <Path.Effect><DropShadowEffect Color="#0AC8B9" BlurRadius="10" ShadowDepth="0" Opacity="0.9"/></Path.Effect>
+            </Path>
+          </Canvas>
+        </Viewbox>
+        <StackPanel VerticalAlignment="Center" Margin="0,0,28,0">
+          <TextBlock Text="RIFT COACH" FontFamily="{StaticResource DisplayFont}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource GoldMetalBrush}" TextWrapping="NoWrap"/>
+          <TextBlock Text="ENTRENADOR DE LA GRIETA" Style="{StaticResource Caption}" FontSize="10" Foreground="{StaticResource Blue2Brush}" Margin="1,0,0,0"/>
+        </StackPanel>
+        <Menu x:Name="MainMenu" VerticalAlignment="Center" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="14">
           <MenuItem Header="_Ventanas" Padding="10,6">
             <MenuItem Header="Campeón y miniguía" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=ChampionPanel}"/>
             <MenuItem Header="Entrenamiento" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=TrainingPanel}"/>
@@ -123,43 +80,55 @@
           </MenuItem>
         </Menu>
       </DockPanel>
-    </Border>
-    <Canvas x:Name="Workspace" Grid.Row="1" ClipToBounds="True" Background="#EEF1EC" SizeChanged="OnWorkspaceSizeChanged">
+    </Grid>
+
+    <!-- Workspace with hextech backdrop -->
+    <Border Grid.Row="1" Background="{StaticResource WorkspaceBrush}"/>
+    <Rectangle Grid.Row="1" Fill="{StaticResource HexPatternBrush}" IsHitTestVisible="False"/>
+    <Canvas x:Name="Workspace" Grid.Row="1" ClipToBounds="True" Background="Transparent" SizeChanged="OnWorkspaceSizeChanged">
 
       <controls:FloatingPanel x:Name="ChampionPanel" Title="Campeón y miniguía" Canvas.Left="8" Canvas.Top="8" Width="330" Height="400">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="0,0,8,0">
-            <TextBlock Text="Campeón elegido" Style="{StaticResource Label}"/>
+            <TextBlock Text="CAMPEÓN ELEGIDO" Style="{StaticResource Caption}"/>
             <ComboBox ItemsSource="{Binding Champions}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedChampion}" AutomationProperties.Name="Campeón elegido"/>
             <Expander x:Name="MiniGuidePanel" Header="Miniguía de habilidades" IsExpanded="True" Margin="0,0,0,12">
               <Grid>
-                <TextBlock Text="{Binding MiniGuide}" FontSize="16" Margin="0,8,0,8"/>
-                <TextBlock Text="La miniguía de habilidades aparecerá al detectar la partida." Style="{StaticResource Label}" Margin="0,8,0,8">
+                <TextBlock Text="{Binding MiniGuide}" FontSize="15" LineHeight="22" Margin="0,6,0,8"/>
+                <TextBlock Text="La miniguía de habilidades aparecerá al detectar la partida." Style="{StaticResource Label}" FontStyle="Italic" Margin="0,6,0,8">
                   <TextBlock.Visibility><Binding Path="MiniGuide" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
                 </TextBlock>
               </Grid>
             </Expander>
-            <TextBlock Text="Tu campeón en partida" Style="{StaticResource Label}"/>
-            <TextBlock Text="{Binding OwnChampion}" FontFamily="Bahnschrift" FontSize="22" Margin="0,4,0,6" Foreground="#205E4F"/>
-            <TextBlock Text="{Binding GamePhase}" Style="{StaticResource Label}" Margin="0,0,0,8"/>
-            <WrapPanel Margin="0,0,0,10">
-              <StackPanel Margin="0,0,14,8"><TextBlock Text="Nivel" Style="{StaticResource Label}"/>
-                <TextBlock x:Name="OwnLevelValue" Text="{Binding OwnLevel}" FontFamily="Bahnschrift" FontSize="22" FontWeight="Bold" Foreground="#145DA0"/>
-              </StackPanel>
-              <StackPanel Margin="0,0,14,8"><TextBlock Text="Vida" Style="{StaticResource Label}"/>
-                <TextBlock x:Name="OwnHealthValue" Text="{Binding OwnHealth}" FontFamily="Bahnschrift" FontSize="20" FontWeight="Bold" Foreground="{Binding OwnHealthColor}"/>
-              </StackPanel>
-              <StackPanel Margin="0,0,0,8"><TextBlock Text="Oro" Style="{StaticResource Label}"/>
-                <TextBlock x:Name="OwnGoldValue" Text="{Binding OwnGold}" FontFamily="Bahnschrift" FontSize="20" FontWeight="Bold" Foreground="#8A6514"/>
-              </StackPanel>
-            </WrapPanel>
+            <TextBlock Text="TU CAMPEÓN EN PARTIDA" Style="{StaticResource Caption}"/>
+            <TextBlock Text="{Binding OwnChampion}" FontFamily="{StaticResource DisplayFont}" FontSize="26" FontWeight="Bold" Margin="0,2,0,0"
+                       Foreground="{StaticResource GoldTextBrush}"/>
+            <TextBlock Text="{Binding GamePhase}" Style="{StaticResource Label}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,10"/>
+            <UniformGrid Columns="3" Margin="0,0,-6,8">
+              <Border Style="{StaticResource StatTile}"><StackPanel>
+                <TextBlock Text="NIVEL" Style="{StaticResource Caption}"/>
+                <TextBlock x:Name="OwnLevelValue" Text="{Binding OwnLevel}" Style="{StaticResource StatNumber}" FontSize="22" Foreground="{StaticResource Blue2Brush}"/>
+              </StackPanel></Border>
+              <Border Style="{StaticResource StatTile}"><StackPanel>
+                <TextBlock Text="VIDA" Style="{StaticResource Caption}"/>
+                <TextBlock x:Name="OwnHealthValue" Text="{Binding OwnHealth}" Style="{StaticResource StatNumber}" Foreground="{Binding OwnHealthColor}"/>
+              </StackPanel></Border>
+              <Border Style="{StaticResource StatTile}"><StackPanel>
+                <TextBlock Text="ORO" Style="{StaticResource Caption}"/>
+                <TextBlock x:Name="OwnGoldValue" Text="{Binding OwnGold}" Style="{StaticResource StatNumber}" Foreground="{StaticResource Gold3Brush}"/>
+              </StackPanel></Border>
+            </UniformGrid>
+            <ProgressBar Style="{StaticResource HealthBar}" Value="{Binding OwnHealthRatio, Mode=OneWay}" Foreground="{Binding OwnHealthColor}"
+                         Margin="0,0,0,10" AutomationProperties.Name="Barra de vida"/>
             <Expander x:Name="OwnAttributes" Header="Tus atributos" IsExpanded="True">
               <ItemsControl ItemsSource="{Binding ApiFields}">
                 <ItemsControl.ItemTemplate><DataTemplate>
-                  <Grid Margin="0,4,0,4"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding Name}" Style="{StaticResource Label}" Margin="0,0,8,0"/>
-                    <TextBlock Grid.Column="1" Text="{Binding Value}" Style="{StaticResource StatValue}"/>
-                  </Grid>
+                  <Border BorderBrush="{StaticResource Grey3Brush}" BorderThickness="0,0,0,1" Padding="0,5">
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <TextBlock Text="{Binding Name}" Style="{StaticResource Label}" Margin="0,0,8,0"/>
+                      <TextBlock Grid.Column="1" Text="{Binding Value}" Style="{StaticResource StatValue}"/>
+                    </Grid>
+                  </Border>
                 </DataTemplate></ItemsControl.ItemTemplate>
               </ItemsControl>
             </Expander>
@@ -169,17 +138,30 @@
 
       <controls:FloatingPanel x:Name="TrainingPanel" Title="Entrenamiento" Canvas.Left="346" Canvas.Top="8" Width="440" Height="400">
         <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Text="{Binding AdviceState}" Style="{StaticResource Label}"/>
+          <DockPanel DockPanel.Dock="Top">
+            <Path Data="M4,0 L8,4 L4,8 L0,4 Z" Fill="{StaticResource Blue2Brush}" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding AdviceState}" Style="{StaticResource Label}" Foreground="{StaticResource Blue1Brush}"/>
+          </DockPanel>
           <TextBlock DockPanel.Dock="Bottom" Text="{Binding AgeLabel}" Style="{StaticResource Label}" MinHeight="22"/>
           <ScrollViewer x:Name="AdviceHistoryScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,8" AutomationProperties.Name="Historial de consejos">
             <ItemsControl ItemsSource="{Binding Messages}" SizeChanged="OnHistorySizeChanged">
               <ItemsControl.ItemTemplate><DataTemplate>
-                <Border BorderBrush="#CCD6CE" BorderThickness="0,0,0,1" Padding="0,12,0,16" Margin="0,0,10,0">
+                <Border x:Name="Item" BorderBrush="{StaticResource Grey3Brush}" BorderThickness="0,0,0,1" Padding="0,12,0,16" Margin="0,0,10,0">
                   <StackPanel>
-                    <DockPanel Margin="0,0,0,8"><TextBlock Text="{Binding TimeLabel}" Style="{StaticResource Label}" DockPanel.Dock="Right"/><TextBlock Text="{Binding State}" Style="{StaticResource Label}"/></DockPanel>
+                    <DockPanel Margin="0,0,0,8">
+                      <TextBlock Text="{Binding TimeLabel}" Style="{StaticResource Label}" DockPanel.Dock="Right"/>
+                      <TextBlock Text="{Binding State, Converter={StaticResource UpperCase}}" Style="{StaticResource Caption}" Foreground="{StaticResource Blue2Brush}"/>
+                    </DockPanel>
                     <TextBlock Text="{Binding Text}" Style="{StaticResource AdviceText}"/>
                   </StackPanel>
                 </Border>
+                <DataTemplate.Triggers>
+                  <DataTrigger Binding="{Binding IsLatest}" Value="True">
+                    <Setter TargetName="Item" Property="Background" Value="{StaticResource LatestAdviceBrush}"/>
+                    <Setter TargetName="Item" Property="Padding" Value="14,12,8,18"/>
+                    <Setter TargetName="Item" Property="BorderBrush" Value="{StaticResource Gold4Brush}"/>
+                  </DataTrigger>
+                </DataTemplate.Triggers>
               </DataTemplate></ItemsControl.ItemTemplate>
             </ItemsControl>
           </ScrollViewer>
@@ -189,35 +171,37 @@
       <controls:FloatingPanel x:Name="SessionPanel" Title="Sesión, partida y depuración" Canvas.Left="794" Canvas.Top="8" Width="300" Height="400" MinWidth="280">
         <DockPanel>
           <WrapPanel DockPanel.Dock="Top">
-            <Button Command="{Binding StartCommand}" Style="{StaticResource Primary}" ToolTip="Iniciar sesión"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="Play" Margin="0,0,8,0"/><TextBlock Text="Iniciar"/></StackPanel></Button>
-            <Button Command="{Binding StopCommand}" ToolTip="Pausar y cancelar solicitudes"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="Pause" Margin="0,0,8,0"/><TextBlock Text="Pausar"/></StackPanel></Button>
+            <Button Command="{Binding StartCommand}" Style="{StaticResource Primary}" ToolTip="Iniciar sesión"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="Play" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="INICIAR"/></StackPanel></Button>
+            <Button Command="{Binding StopCommand}" ToolTip="Pausar y cancelar solicitudes"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="Pause" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="PAUSAR"/></StackPanel></Button>
           </WrapPanel>
           <TextBlock DockPanel.Dock="Top" Text="{Binding StateLabel}" Style="{StaticResource Label}" Margin="0,0,0,6"/>
           <TabControl x:Name="SessionTabs">
             <TabControl.Resources>
-              <Style TargetType="TabItem"><Setter Property="Padding" Value="10,6"/><Setter Property="FontFamily" Value="Bahnschrift"/><Setter Property="FontSize" Value="14"/></Style>
-              <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}"><Setter Property="AutoGenerateColumns" Value="False"/><Setter Property="IsReadOnly" Value="True"/><Setter Property="CanUserAddRows" Value="False"/><Setter Property="HeadersVisibility" Value="Column"/><Setter Property="RowHeight" Value="34"/><Setter Property="BorderThickness" Value="0"/></Style>
+              <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}"><Setter Property="AutoGenerateColumns" Value="False"/><Setter Property="IsReadOnly" Value="True"/><Setter Property="CanUserAddRows" Value="False"/><Setter Property="HeadersVisibility" Value="Column"/><Setter Property="RowHeight" Value="32"/><Setter Property="BorderThickness" Value="0"/></Style>
             </TabControl.Resources>
             <TabItem Header="Sesión">
               <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="4,10,4,4">
                 <StackPanel>
                   <CheckBox IsChecked="{Binding AutomaticStartEnabled}" IsEnabled="{Binding CanChangeMode}"><TextBlock Text="Inicio automático al detectar partida"/></CheckBox>
                   <CheckBox IsChecked="{Binding ContinuousSending}" IsEnabled="{Binding CanChangeMode}"><TextBlock Text="Envío continuo · sin límite de solicitudes"/></CheckBox>
-                  <TextBlock Text="Modelo" Style="{StaticResource Label}"/>
-                  <TextBlock Text="{Binding ModelName}" Margin="0,4,0,6"/>
-                  <TextBlock Text="{Binding ModelStatus}" Style="{StaticResource Label}" Margin="0,0,0,14"/>
-                  <TextBlock Text="{Binding Requests, StringFormat=Solicitudes de sesión: {0}}" Margin="0,0,0,14"/>
+                  <TextBlock Text="MODELO" Style="{StaticResource Caption}"/>
+                  <TextBlock Text="{Binding ModelName}" Margin="0,2,0,2" FontFamily="{StaticResource NumberFont}"/>
+                  <TextBlock Text="{Binding ModelStatus}" Style="{StaticResource Label}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,14"/>
+                  <TextBlock Margin="0,0,0,14"><Run Text="Solicitudes de sesión: " Foreground="{StaticResource TextSecondaryBrush}"/><Run Text="{Binding Requests, Mode=OneWay}" FontFamily="{StaticResource NumberFont}" FontWeight="Bold" Foreground="{StaticResource Gold2Brush}"/></TextBlock>
                   <CheckBox IsChecked="{Binding VoiceEnabled}" IsEnabled="{Binding HasSpanishVoice}" Content="Autoplay de voz en español"/>
                   <ComboBox ItemsSource="{Binding Voices}" SelectedItem="{Binding SelectedVoice}" AutomationProperties.Name="Voz española"/>
-                  <TextBlock Text="Volumen" Style="{StaticResource Label}"/>
-                  <Slider Minimum="0" Maximum="100" Value="{Binding Volume}" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,8,0,8" AutomationProperties.Name="Volumen"/>
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Volume}" FontFamily="{StaticResource NumberFont}" Foreground="{StaticResource Gold2Brush}"/>
+                    <TextBlock Text="VOLUMEN" Style="{StaticResource Caption}"/>
+                  </DockPanel>
+                  <Slider Minimum="0" Maximum="100" Value="{Binding Volume}" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,6,0,8" AutomationProperties.Name="Volumen"/>
                   <TextBlock Text="{Binding VoiceStatus}" Style="{StaticResource Label}"/>
                 </StackPanel>
               </ScrollViewer>
             </TabItem>
             <TabItem Header="Partida">
               <DockPanel Margin="4,10,4,4">
-                <TextBlock DockPanel.Dock="Top" Text="{Binding ApiStatus}" Margin="0,0,0,4"/>
+                <TextBlock DockPanel.Dock="Top" Text="{Binding ApiStatus}" Foreground="{StaticResource Blue1Brush}" Margin="0,0,0,4"/>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding ApiLastUpdate, StringFormat=Última actualización: {0}}" Style="{StaticResource Label}" Margin="0,0,0,10"/>
                 <DataGrid ItemsSource="{Binding ApiFields}" AutomationProperties.Name="Información recuperada de LoL">
                   <DataGrid.Columns><DataGridTextColumn Header="Dato" Binding="{Binding Name}" Width="Auto" MinWidth="110"/><DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="*"/></DataGrid.Columns>
@@ -227,12 +211,12 @@
             <TabItem Header="Depuración">
               <DockPanel Margin="4,10,4,4">
                 <DockPanel DockPanel.Dock="Top">
-                  <Button DockPanel.Dock="Right" Command="{Binding ClearDiagnosticsCommand}" ToolTip="Limpiar registros" MinHeight="32" Padding="10,6"><icons:PackIconMaterial Kind="DeleteOutline"/></Button>
-                  <TextBlock Text="Consultas a las API" FontFamily="Bahnschrift" FontSize="17" VerticalAlignment="Center"/>
+                  <Button DockPanel.Dock="Right" Command="{Binding ClearDiagnosticsCommand}" ToolTip="Limpiar registros" MinHeight="32" Padding="10,6" Margin="0,0,0,8"><icons:PackIconMaterial Kind="DeleteOutline"/></Button>
+                  <TextBlock Text="CONSULTAS A LAS API" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
                 </DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                   <TextBlock Text="{Binding LocalSettingsPath}" Style="{StaticResource Label}"/>
-                  <TextBlock Text="{Binding ModelReply}" Margin="0,6,0,0" FontSize="14"/>
+                  <TextBlock Text="{Binding ModelReply}" Margin="0,6,0,0" FontSize="13"/>
                 </StackPanel>
                 <TabControl>
                   <TabItem Header="LoL"><DataGrid ItemsSource="{Binding LolDiagnostics}" AutomationProperties.Name="Consultas a la API de LoL"><DataGrid.Columns>
@@ -248,12 +232,14 @@
               <DockPanel Margin="4,10,4,4">
                 <TextBlock DockPanel.Dock="Top" Text="{Binding PayloadLabel, StringFormat=Imagen enviada: {0}}" Style="{StaticResource Label}"/>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding LatencyLabel, StringFormat=Frase completa: {0}}" Style="{StaticResource Label}" Margin="0,4,0,8"/>
-                <Grid>
-                  <TextBlock Text="Sin captura activa" Style="{StaticResource Label}" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <TextBlock.Visibility><Binding Path="Scene" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
-                  </TextBlock>
-                  <Image Source="{Binding Scene}" Stretch="Uniform" AutomationProperties.Name="Captura de pantalla enviada"/>
-                </Grid>
+                <Border BorderBrush="{StaticResource Gold4Brush}" BorderThickness="1" Background="{StaticResource VoidBrush}" Padding="2">
+                  <Grid>
+                    <TextBlock Text="Sin captura activa" Style="{StaticResource Label}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <TextBlock.Visibility><Binding Path="Scene" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
+                    </TextBlock>
+                    <Image Source="{Binding Scene}" Stretch="Uniform" AutomationProperties.Name="Captura de pantalla enviada"/>
+                  </Grid>
+                </Border>
               </DockPanel>
             </TabItem>
           </TabControl>
@@ -262,29 +248,30 @@
 
       <controls:FloatingPanel x:Name="ChampionsPanel" Title="Campeones" Canvas.Left="8" Canvas.Top="416" Width="1086" Height="240" MinWidth="320">
         <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Style="{StaticResource Label}" Margin="0,0,0,6">
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource Label}" Margin="0,0,0,8">
             <Run Text="{Binding RosterStatus, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding ApiLastUpdate, Mode=OneWay, StringFormat=Actualizado: {0}}"/>
           </TextBlock>
           <ScrollViewer x:Name="PlayersScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Marcador de todos los campeones">
             <ItemsControl ItemsSource="{Binding Players}">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate><DataTemplate>
-                <Border x:Name="Column" Width="190" Margin="0,0,10,8" Padding="10,8" CornerRadius="4" BorderThickness="0,3,0,0" BorderBrush="#9BA99F" Background="#FAFBF8">
+                <Border x:Name="Column" Width="190" Margin="0,0,10,8" Padding="12,10" BorderThickness="1,3,1,1"
+                        BorderBrush="{StaticResource Blue2Brush}" Background="{StaticResource CardBackgroundBrush}">
                   <StackPanel ToolTip="{Binding Details}">
-                    <TextBlock Text="{Binding Heading}" FontFamily="Bahnschrift" FontSize="16">
+                    <TextBlock Text="{Binding Heading}" FontFamily="{StaticResource DisplayFont}" FontWeight="SemiBold" FontSize="16" Foreground="{StaticResource Blue1Brush}">
                       <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers>
-                        <DataTrigger Binding="{Binding Player.IsOwn}" Value="True"><Setter Property="Foreground" Value="#205E4F"/><Setter Property="FontWeight" Value="SemiBold"/></DataTrigger>
-                        <DataTrigger Binding="{Binding Player.Relation}" Value="Rival"><Setter Property="Foreground" Value="#AC4539"/></DataTrigger>
+                        <DataTrigger Binding="{Binding Player.IsOwn}" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold1Brush}"/></DataTrigger>
+                        <DataTrigger Binding="{Binding Player.Relation}" Value="Rival"><Setter Property="Foreground" Value="{StaticResource RedBrush}"/></DataTrigger>
                       </Style.Triggers></Style></TextBlock.Style>
                     </TextBlock>
-                    <TextBlock FontSize="14" Margin="0,4,0,4"><Run Text="Nv. "/><Run Text="{Binding Player.Level, Mode=OneWay, TargetNullValue=-}" FontWeight="Bold" Foreground="#145DA0"/><Run Text="{Binding ScoreDetails, Mode=OneWay}"/></TextBlock>
+                    <TextBlock FontSize="14" Margin="0,4,0,4"><Run Text="Nv. " Foreground="{StaticResource TextSecondaryBrush}"/><Run Text="{Binding Player.Level, Mode=OneWay, TargetNullValue=-}" FontFamily="{StaticResource NumberFont}" FontWeight="Bold" Foreground="{StaticResource Blue2Brush}"/><Run Text="{Binding ScoreDetails, Mode=OneWay}"/></TextBlock>
                     <TextBlock Text="{Binding Details}" Style="{StaticResource Label}" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding Items}" Style="{StaticResource Label}"/>
                   </StackPanel>
                 </Border>
                 <DataTemplate.Triggers>
-                  <DataTrigger Binding="{Binding Player.Relation}" Value="Rival"><Setter TargetName="Column" Property="BorderBrush" Value="#AC4539"/><Setter TargetName="Column" Property="Background" Value="#F8EFEC"/></DataTrigger>
-                  <DataTrigger Binding="{Binding Player.IsOwn}" Value="True"><Setter TargetName="Column" Property="BorderBrush" Value="#205E4F"/></DataTrigger>
+                  <DataTrigger Binding="{Binding Player.Relation}" Value="Rival"><Setter TargetName="Column" Property="BorderBrush" Value="{StaticResource RedBrush}"/><Setter TargetName="Column" Property="Background" Value="{StaticResource RivalCardBackgroundBrush}"/></DataTrigger>
+                  <DataTrigger Binding="{Binding Player.IsOwn}" Value="True"><Setter TargetName="Column" Property="BorderBrush" Value="{StaticResource GoldBorderBrush}"/><Setter TargetName="Column" Property="Background" Value="{StaticResource OwnCardBackgroundBrush}"/></DataTrigger>
                 </DataTemplate.Triggers>
               </DataTemplate></ItemsControl.ItemTemplate>
             </ItemsControl>
@@ -296,44 +283,48 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="0,0,8,0">
             <StackPanel Style="{StaticResource QuizPanel}">
-              <TextBlock Text="{Binding QuestionProgress}" Style="{StaticResource Label}" Margin="0,0,0,14"/>
+              <TextBlock Text="{Binding QuestionProgress, Converter={StaticResource UpperCase}}" Style="{StaticResource Caption}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,10"/>
               <TextBlock Text="{Binding CurrentQuestion.Question.Text}" Style="{StaticResource Heading}"/>
               <ListBox ItemsSource="{Binding CurrentQuestion.Question.Options}" SelectedIndex="{Binding CurrentQuestion.SelectedIndex, Mode=TwoWay}"
-                       AutomationProperties.Name="Respuestas del cuestionario" BorderThickness="0" Background="Transparent" Margin="0,8,0,20">
-                <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="16,12"/><Setter Property="Margin" Value="0,0,0,6"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style></ListBox.ItemContainerStyle>
+                       AutomationProperties.Name="Respuestas del cuestionario" ItemContainerStyle="{StaticResource QuizOption}" Margin="0,8,0,20">
                 <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Text}"/></DataTemplate></ListBox.ItemTemplate>
               </ListBox>
               <WrapPanel>
-                <Button Command="{Binding PreviousQuestionCommand}" ToolTip="Pregunta anterior"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="ArrowLeft" Margin="0,0,8,0"/><TextBlock Text="Anterior"/></StackPanel></Button>
-                <Button Command="{Binding NextQuestionCommand}" Style="{StaticResource Primary}"><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding NextLabel}"/><icons:PackIconMaterial Kind="ArrowRight" Margin="8,0,0,0"/></StackPanel></Button>
+                <Button Command="{Binding PreviousQuestionCommand}" ToolTip="Pregunta anterior"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="ChevronLeft" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="ANTERIOR"/></StackPanel></Button>
+                <Button Command="{Binding NextQuestionCommand}" Style="{StaticResource Primary}"><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding NextLabel, Converter={StaticResource UpperCase}}"/><icons:PackIconMaterial Kind="ChevronRight" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
               </WrapPanel>
             </StackPanel>
             <StackPanel Visibility="{Binding ShowResults, Converter={StaticResource BoolVisibility}}">
               <TextBlock Text="Tu punto de partida" Style="{StaticResource Heading}"/>
-              <TextBlock Text="{Binding ResultSummary}" Margin="0,0,0,18"/>
+              <TextBlock Text="{Binding ResultSummary}" LineHeight="22" Margin="0,0,0,18"/>
               <ItemsControl ItemsSource="{Binding Recommendations}" Margin="0,0,0,12">
                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate><DataTemplate>
-                  <Border Background="#FAFBF8" BorderBrush="#C7D1C8" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,0,10,10" Width="200">
+                  <Border Background="{StaticResource CardBackgroundBrush}" BorderBrush="{StaticResource GoldBorderBrush}" BorderThickness="1" Padding="16" Margin="0,0,10,10" Width="200">
                     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                      <Image Source="{Binding Portrait}" Height="80" Width="80" Stretch="UniformToFill" HorizontalAlignment="Left" Margin="0,0,0,12"/>
-                      <TextBlock Grid.Row="1" Text="{Binding Choice.Name}" FontFamily="Bahnschrift" FontSize="20"/>
-                      <TextBlock Grid.Row="2" Text="{Binding Role}" Foreground="#205E4F" Margin="0,4,0,8"/>
-                      <StackPanel Grid.Row="3"><TextBlock Text="{Binding Choice.Reason}"/><TextBlock Text="{Binding Choice.Difficulty, StringFormat=Dificultad: {0}}" Style="{StaticResource Label}" Margin="0,10,0,12"/></StackPanel>
-                      <Button Grid.Row="4" Content="Elegir" Command="{Binding DataContext.ChooseChampionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                      <Grid Width="88" Height="88" HorizontalAlignment="Left" Margin="0,0,0,12">
+                        <Ellipse Fill="{StaticResource VoidBrush}" Stroke="{StaticResource GoldMetalBrush}" StrokeThickness="3"/>
+                        <Ellipse Margin="5"><Ellipse.Fill><ImageBrush ImageSource="{Binding Portrait}" Stretch="UniformToFill"/></Ellipse.Fill></Ellipse>
+                      </Grid>
+                      <TextBlock Grid.Row="1" Text="{Binding Choice.Name}" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="21" Foreground="{StaticResource GoldTextBrush}"/>
+                      <TextBlock Grid.Row="2" Text="{Binding Role, Converter={StaticResource UpperCase}}" Style="{StaticResource Caption}" Foreground="{StaticResource Blue2Brush}" Margin="0,2,0,10"/>
+                      <StackPanel Grid.Row="3"><TextBlock Text="{Binding Choice.Reason}" FontSize="14"/><TextBlock Text="{Binding Choice.Difficulty, StringFormat=Dificultad: {0}}" Style="{StaticResource Label}" Margin="0,10,0,12"/></StackPanel>
+                      <Button Grid.Row="4" Content="ELEGIR" Margin="0" Command="{Binding DataContext.ChooseChampionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
                     </Grid>
                   </Border>
                 </DataTemplate></ItemsControl.ItemTemplate>
               </ItemsControl>
-              <WrapPanel><Button Content="Usar este perfil" Style="{StaticResource Primary}" Command="{Binding SaveProfileCommand}"/><Button Content="Repetir cuestionario" Command="{Binding RepeatQuizCommand}"/></WrapPanel>
+              <WrapPanel><Button Content="USAR ESTE PERFIL" Style="{StaticResource Primary}" Command="{Binding SaveProfileCommand}"/><Button Content="REPETIR CUESTIONARIO" Command="{Binding RepeatQuizCommand}"/></WrapPanel>
             </StackPanel>
           </StackPanel>
         </ScrollViewer>
       </controls:FloatingPanel>
     </Canvas>
-    <Border Grid.Row="2" Background="#ECECE1" BorderBrush="#CFD1BD" BorderThickness="0,1,0,0" Padding="20,8">
-      <StackPanel><TextBlock Text="{Binding LiveRestriction}" FontSize="14" Foreground="#66542D"/>
-        <TextBlock FontSize="11" Foreground="#596457" Margin="0,4,0,0" Text="Rift Coach isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc."/>
+
+    <!-- Footer -->
+    <Border Grid.Row="2" Background="{StaticResource VoidBrush}" BorderBrush="{StaticResource Gold5Brush}" BorderThickness="0,1,0,0" Padding="20,8">
+      <StackPanel><TextBlock Text="{Binding LiveRestriction}" FontSize="13" Foreground="{StaticResource Gold3Brush}"/>
+        <TextBlock FontSize="11" Foreground="{StaticResource Grey15Brush}" Margin="0,4,0,0" Text="Rift Coach isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc."/>
       </StackPanel>
     </Border>
   </Grid>

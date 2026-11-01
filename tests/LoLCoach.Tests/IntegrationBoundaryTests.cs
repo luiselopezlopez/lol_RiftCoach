@@ -491,15 +491,15 @@ public class IntegrationBoundaryTests
         using var service = new FoundryCoachingService(new(), "fake-key", new HttpClient(handler));
         var observation = new Observation([1, 2, 3], snapshot, 0, ObservationKind.BotPractice)
         { Practice = verification };
-        var previousAdvice = Enumerable.Range(1, 6).Select(index => $"Ataca objetivo {index}.").ToArray();
+        var previousAdvice = Enumerable.Range(1, 32).Select(index => $"Ataca objetivo {index}.").ToArray();
         await foreach (var part in service.StreamAsync(observation, new(PlayerRole.Adc, "Ashe", []), previousAdvice, default)) { }
         using var request = JsonDocument.Parse(handler.Body);
         var messages = request.RootElement.GetProperty("messages");
-        Assert.Equal(7, messages.GetArrayLength());
+        Assert.Equal(32, messages.GetArrayLength());
         Assert.Equal("assistant", messages[1].GetProperty("role").GetString());
-        Assert.Equal("Ataca objetivo 2.", messages[1].GetProperty("content").GetString());
-        Assert.Equal("Ataca objetivo 6.", messages[5].GetProperty("content").GetString());
-        var content = messages[6].GetProperty("content");
+        Assert.Equal("Ataca objetivo 3.", messages[1].GetProperty("content").GetString());
+        Assert.Equal("Ataca objetivo 32.", messages[30].GetProperty("content").GetString());
+        var content = messages[31].GetProperty("content");
         using var context = JsonDocument.Parse(content[0].GetProperty("text").GetString()!);
         Assert.Equal("Garen", context.RootElement.GetProperty("champion").GetString());
         Assert.Equal("BotPractice", context.RootElement.GetProperty("source").GetString());
