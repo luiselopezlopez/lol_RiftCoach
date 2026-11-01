@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/LoLCoach/LoLCoach.csproj" />
+  <Project Path="tests/LoLCoach.Tests/LoLCoach.Tests.csproj" />
+</Solution>

@@ -1,0 +1,7 @@
+{
+  "Endpoint": "https://luisellmcontainer.openai.azure.com/openai/v1/",
+  "Model": "gpt-6-luna",
+  "ApiKey": "",
+  "RequestLimit": 12,
+  "Profile": null
+}

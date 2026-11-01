@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+.vs/
+.env*
+*.user
+artifacts/
+TestResults/
+*.secret
+localsettings*.json
+!localsettings.example.json

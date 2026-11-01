@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Rift Coach (Debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build Rift Coach (Debug)",
+      "program": "${workspaceFolder}/src/LoLCoach/bin/Debug/net10.0-windows10.0.19041.0/LoLCoach.dll",
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "justMyCode": true
+    }
+  ]
+}
