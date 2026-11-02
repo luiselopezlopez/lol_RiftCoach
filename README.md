@@ -34,6 +34,8 @@ Para generar un instalador Windows `win-x64`, instala [Inno Setup 6](https://jrs
 
 El instalador permite elegir la carpeta, crea accesos directos y no incluye `localsettings.json` ni credenciales. El resultado queda en `artifacts/installer/RiftCoach-Setup-win-x64.exe`.
 
+Cada `push` a `main` genera una nueva release de GitHub con el instalador como asset descargable; esto incluye commits directos y merges de pull requests. La versión y la etiqueta usan el número incremental de ejecución de GitHub Actions (`build-N`), no un número major.minor.bugfix. Si se reejecuta un workflow, se actualiza la misma release y el instalador. Consulta [Releases](https://github.com/luiselopezlopez/lol/releases) o descarga la [última versión](https://github.com/luiselopezlopez/lol/releases/latest).
+
 ## Ventanas
 
 La interfaz se compone de ventanas flotantes dentro de la ventana principal. Cada una se mueve arrastrando su barra de titulo, se redimensiona desde los bordes izquierdo, derecho, inferior o las esquinas inferiores, y se cierra con la X. El menu **Ventanas** permite volver a abrir cualquier ventana cerrada o restablecer la disposicion por defecto.

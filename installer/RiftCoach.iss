@@ -1,15 +1,18 @@
 #define AppName "Rift Coach"
 #define AppExeName "LoLCoach.exe"
 #define PublishDir "..\artifacts\installer-publish"
+#ifndef AppVersion
+  #define AppVersion "local"
+#endif
 
 [Setup]
 AppId={{3C817D55-5D3C-4D64-91AF-57A41A420FE3}
 AppName={#AppName}
-AppVersion=1.0.0
+AppVersion=Build {#AppVersion}
 DefaultDirName={localappdata}\Programs\Rift Coach
 DefaultGroupName={#AppName}
 UninstallDisplayIcon={app}\{#AppExeName}
-OutputDir=.\installer
+OutputDir=..\artifacts\installer
 OutputBaseFilename=RiftCoach-Setup-win-x64
 ArchitecturesInstallIn64BitMode=x64
 ArchitecturesAllowed=x64

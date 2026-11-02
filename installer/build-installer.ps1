@@ -1,3 +1,8 @@
+param(
+    [ValidatePattern('^\d{1,14}$')]
+    [string]$BuildNumber = (Get-Date -Format 'yyyyMMddHHmmss')
+)
+
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -27,9 +32,14 @@ if (-not $compiler) {
     throw 'No se encontro ISCC.exe. Instala Inno Setup 6 y vuelve a ejecutar este script.'
 }
 
-& $compiler $setupScript
+& $compiler "/O$outputDir" "/DAppVersion=$BuildNumber" $setupScript
 if ($LASTEXITCODE -ne 0) {
     throw "Inno Setup fallo con codigo $LASTEXITCODE."
 }
 
-Write-Host "Instalador generado: $(Join-Path $outputDir 'RiftCoach-Setup-win-x64.exe')"
+$installerPath = Join-Path $outputDir 'RiftCoach-Setup-win-x64.exe'
+if (-not (Test-Path $installerPath)) {
+    throw "Inno Setup termino, pero no se encontro el instalador esperado: $installerPath"
+}
+
+Write-Host "Instalador generado: $installerPath"

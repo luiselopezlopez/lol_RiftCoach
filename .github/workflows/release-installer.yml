@@ -1,0 +1,63 @@
+name: Release installer
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: .\installer\build-installer.ps1 -BuildNumber $env:GITHUB_RUN_NUMBER
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $buildNumber = [long]$env:GITHUB_RUN_NUMBER
+          $tag = "build-$buildNumber"
+          $title = "Rift Coach build $buildNumber"
+          $asset = "artifacts\installer\RiftCoach-Setup-win-x64.exe"
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $asset --repo $env:GITHUB_REPOSITORY --clobber
+            if ($LASTEXITCODE -ne 0) { throw "No se pudo actualizar el instalador de la release $tag." }
+
+            gh release edit $tag --repo $env:GITHUB_REPOSITORY --title $title
+            if ($LASTEXITCODE -ne 0) { throw "No se pudo actualizar el título de la release $tag." }
+          }
+          else {
+            gh release create $tag $asset --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title $title --generate-notes --latest=false
+            if ($LASTEXITCODE -ne 0) { throw "No se pudo crear la release $tag." }
+          }
+
+          $releases = gh release list --repo $env:GITHUB_REPOSITORY --json tagName,isLatest --limit 100 | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "No se pudieron consultar las releases." }
+          $latestRelease = $releases | Where-Object isLatest | Select-Object -First 1
+          $latestBuildNumber = 0L
+          if ($latestRelease -and $latestRelease.tagName -match '^build-(\d+)$') {
+            $latestBuildNumber = [long]$Matches[1]
+          }
+          if ($latestBuildNumber -lt $buildNumber) {
+            gh release edit $tag --repo $env:GITHUB_REPOSITORY --latest
+            if ($LASTEXITCODE -ne 0) { throw "No se pudo marcar la release $tag como la más reciente." }
+          }
