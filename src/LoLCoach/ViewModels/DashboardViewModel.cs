@@ -109,6 +109,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     public string VoiceStatus => HasSpanishVoice ? "Voz española disponible" : speech.InitializationError ?? "No hay una voz española compatible instalada.";
     public string LiveRestriction => ProductPolicy.LiveRestriction;
     public string LocalSettingsPath => store.LocalSettingsPath;
+    public string CoachingPromptPath => store.CoachingPromptPath;
     public string ModelName => settings.Deployment;
     public bool CanChangeMode => !IsBusy;
     public string ProfileLabel => SelectedChampion is null ? "Sin perfil" : $"{QuestionnaireService.RoleName(SelectedChampion.Role)} · {SelectedChampion.Name}";
@@ -227,6 +228,22 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     public event EventHandler? ProfileSaved;
 
     public AppSettings LoadConnectionSettings() => store.LoadForEditing();
+    public string LoadCoachingPrompt() => store.LoadPrompt();
+    public IReadOnlyList<PromptVersion> LoadPromptVersions() => store.LoadPromptVersions();
+
+    public void SaveCoachingPrompt(string prompt)
+    {
+        if (IsBusy) throw new InvalidOperationException("Pausa la sesión antes de cambiar el prompt.");
+        store.SavePrompt(prompt);
+        Status = "Prompt guardado. Pulsa Iniciar para aplicarlo.";
+    }
+
+    public void RestorePromptVersion(string versionId)
+    {
+        if (IsBusy) throw new InvalidOperationException("Pausa la sesión antes de cambiar el prompt.");
+        store.RestorePromptVersion(versionId);
+        Status = "Versión del prompt restaurada. Pulsa Iniciar para aplicarla.";
+    }
 
     public void SaveConnectionSettings(string endpoint, string model, int requestLimit, string? apiKey)
     {

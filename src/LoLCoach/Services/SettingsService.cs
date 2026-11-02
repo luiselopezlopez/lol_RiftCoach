@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace LoLCoach.Services;
 
@@ -13,6 +15,13 @@ public sealed record AppSettings
     public int RequestLimit { get; init; } = 12;
     public PlayerProfile? Profile { get; init; }
     public bool AllowUnverifiedBotOpponentsForDebugging { get; init; }
+    [JsonIgnore]
+    public string? CoachingPrompt { get; init; }
+}
+
+public sealed record PromptVersion(string Id, DateTimeOffset CreatedAt)
+{
+    public string DisplayName => CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.CurrentCulture);
 }
 
 public sealed record PanelLayout(double Left, double Top, double Width, double Height, bool IsOpen, int ZIndex = 0)
@@ -32,6 +41,10 @@ public sealed class SettingsService
     };
     private static readonly JsonSerializerOptions ProfileOptions = new() { PropertyNameCaseInsensitive = true };
     private const string ProtectedKeyPrefix = "dpapi:";
+    private const string PromptFileName = "coaching-prompt.txt";
+    private const string PromptHistoryDirectoryName = "coaching-prompt-history";
+    private const string PromptVersionFormat = "yyyyMMdd'T'HHmmssfffffff'Z'";
+    private static readonly Regex PromptVersionIdPattern = new(@"^[0-9]{8}T[0-9]{13}Z-[0-9a-f]{32}$", RegexOptions.CultureInvariant);
     private sealed record LocalSettings
     {
         public string Endpoint { get; init; } = new AppSettings().Endpoint;
@@ -58,6 +71,8 @@ public sealed class SettingsService
     }
 
     public string LocalSettingsPath => Path.Combine(directory, "localsettings.json");
+    public string CoachingPromptPath => Path.Combine(directory, PromptFileName);
+    private string PromptHistoryDirectory => Path.Combine(directory, PromptHistoryDirectoryName);
 
     public SettingsService(string? directory = null)
         => this.directory = directory ?? ResolveDirectory(AppContext.BaseDirectory, Environment.CurrentDirectory,
@@ -84,23 +99,98 @@ public sealed class SettingsService
 
     public AppSettings Load()
     {
+        AppSettings settings;
         try
         {
-            return LoadForEditing();
+            settings = ToAppSettings(ReadLocalSettings());
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
         {
-            return new();
+            settings = new();
         }
+        return settings with { CoachingPrompt = LoadPrompt() };
     }
 
-    public AppSettings LoadForEditing() => ToAppSettings(ReadLocalSettings());
+    public AppSettings LoadForEditing() => ToAppSettings(ReadLocalSettings()) with { CoachingPrompt = LoadPrompt() };
 
-    private static AppSettings ToAppSettings(LocalSettings local) => new()
+    private AppSettings ToAppSettings(LocalSettings local) => new()
     {
         Endpoint = local.Endpoint, Deployment = local.Model, RequestLimit = local.RequestLimit,
         Profile = local.Profile, AllowUnverifiedBotOpponentsForDebugging = local.AllowUnverifiedBotOpponentsForDebugging
     };
+
+    public static string LoadDefaultCoachingPrompt()
+    {
+        using var stream = typeof(SettingsService).Assembly.GetManifestResourceStream("LoLCoach.Prompts.CoachingPrompt.txt")
+            ?? throw new InvalidOperationException("No se encontró el prompt predeterminado.");
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        return reader.ReadToEnd();
+    }
+
+    public string LoadPrompt()
+    {
+        if (File.Exists(CoachingPromptPath)) return File.ReadAllText(CoachingPromptPath, Encoding.UTF8);
+        var prompt = LoadDefaultCoachingPrompt();
+        WritePromptAtomically(prompt);
+        return prompt;
+    }
+
+    public IReadOnlyList<PromptVersion> LoadPromptVersions()
+    {
+        if (!Directory.Exists(PromptHistoryDirectory)) return [];
+        return Directory.EnumerateFiles(PromptHistoryDirectory, "*.txt")
+            .Select(Path.GetFileNameWithoutExtension)
+            .Where(id => id is not null && PromptVersionIdPattern.IsMatch(id))
+            .Select(id => DateTimeOffset.TryParseExact(id![..23], PromptVersionFormat, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal, out var createdAt) ? new PromptVersion(id, createdAt) : null)
+            .Where(version => version is not null)
+            .Select(version => version!)
+            .OrderByDescending(version => version.CreatedAt)
+            .ThenByDescending(version => version.Id, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    public void SavePrompt(string prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt)) throw new ArgumentException("El prompt no puede estar vacío.");
+        var current = LoadPrompt();
+        if (string.Equals(current, prompt, StringComparison.Ordinal)) return;
+        Directory.CreateDirectory(PromptHistoryDirectory);
+        SavePromptVersion(current);
+        WritePromptAtomically(prompt);
+    }
+
+    public void RestorePromptVersion(string versionId)
+    {
+        if (!PromptVersionIdPattern.IsMatch(versionId))
+            throw new ArgumentException("La versión del prompt seleccionada no es válida.");
+        var versionPath = Path.Combine(PromptHistoryDirectory, versionId + ".txt");
+        if (!File.Exists(versionPath)) throw new FileNotFoundException("La versión del prompt ya no existe.", versionPath);
+        SavePrompt(File.ReadAllText(versionPath, Encoding.UTF8));
+    }
+
+    private void SavePromptVersion(string prompt)
+    {
+        Directory.CreateDirectory(PromptHistoryDirectory);
+        var timestamp = DateTimeOffset.UtcNow.ToString(PromptVersionFormat, CultureInfo.InvariantCulture);
+        var path = Path.Combine(PromptHistoryDirectory, $"{timestamp}-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(path, prompt, new UTF8Encoding(false));
+    }
+
+    private void WritePromptAtomically(string prompt)
+    {
+        Directory.CreateDirectory(directory);
+        var temporary = Path.Combine(directory, PromptFileName + ".tmp");
+        try
+        {
+            File.WriteAllText(temporary, prompt, new UTF8Encoding(false));
+            File.Move(temporary, CoachingPromptPath, true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
 
     public void Save(AppSettings settings)
     {

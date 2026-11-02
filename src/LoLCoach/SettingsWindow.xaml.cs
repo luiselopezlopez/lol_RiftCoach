@@ -3,6 +3,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Windows;
+using LoLCoach.Services;
 using LoLCoach.ViewModels;
 
 namespace LoLCoach;
@@ -22,6 +23,8 @@ public partial class SettingsWindow : Window
             EndpointInput.Text = settings.Endpoint;
             ModelInput.Text = settings.Deployment;
             RequestLimitInput.Text = settings.RequestLimit.ToString(CultureInfo.InvariantCulture);
+            CoachingPromptInput.Text = viewModel.LoadCoachingPrompt();
+            RefreshPromptVersions();
         }
         catch (Exception exception) when (IsSettingsError(exception))
         {
@@ -46,6 +49,7 @@ public partial class SettingsWindow : Window
             RequestLimitInput.Focus();
             return;
         }
+
         try
         {
             var key = DeleteKeyInput.IsChecked == true ? "" : string.IsNullOrWhiteSpace(ApiKeyInput.Password) ? null : ApiKeyInput.Password;
@@ -58,6 +62,42 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void OnSavePrompt(object sender, RoutedEventArgs args)
+    {
+        ErrorText.Text = "";
+        try
+        {
+            viewModel.SaveCoachingPrompt(CoachingPromptInput.Text);
+            RefreshPromptVersions();
+        }
+        catch (Exception exception) when (IsSettingsError(exception))
+        {
+            ShowError(exception);
+        }
+    }
+
+    private void OnRestorePromptVersion(object sender, RoutedEventArgs args)
+    {
+        ErrorText.Text = "";
+        if (PromptVersionInput.SelectedItem is not PromptVersion version) return;
+        try
+        {
+            viewModel.RestorePromptVersion(version.Id);
+            CoachingPromptInput.Text = viewModel.LoadCoachingPrompt();
+            RefreshPromptVersions();
+        }
+        catch (Exception exception) when (IsSettingsError(exception))
+        {
+            ShowError(exception);
+        }
+    }
+
+    private void RefreshPromptVersions()
+    {
+        PromptVersionInput.ItemsSource = viewModel.LoadPromptVersions();
+        PromptVersionInput.SelectedIndex = 0;
+    }
+
     private static bool IsSettingsError(Exception exception)
         => exception is ArgumentException or IOException or UnauthorizedAccessException or JsonException
             or CryptographicException or InvalidOperationException or NotSupportedException;
@@ -65,6 +105,7 @@ public partial class SettingsWindow : Window
     private void ShowError(Exception exception) => ErrorText.Text = exception switch
     {
         ArgumentException or InvalidOperationException => exception.Message,
+        FileNotFoundException => "No se encontró la versión del prompt seleccionada.",
         JsonException => "El archivo de configuración tiene un formato inválido. Corrígelo antes de guardar.",
         CryptographicException => "No se pudo cifrar la clave. La configuración no se ha guardado.",
         _ => "No se pudo acceder al archivo de configuración. Comprueba la ruta y los permisos."

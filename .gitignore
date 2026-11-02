@@ -8,3 +8,5 @@ TestResults/
 *.secret
 localsettings*.json
 !localsettings.example.json
+coaching-prompt.txt
+coaching-prompt-history/
