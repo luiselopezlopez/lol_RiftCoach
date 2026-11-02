@@ -225,6 +225,16 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
 
     public event EventHandler? ProfileSaved;
 
+    public AppSettings LoadConnectionSettings() => store.LoadForEditing();
+
+    public void SaveConnectionSettings(string endpoint, string model, int requestLimit, string? apiKey)
+    {
+        if (IsBusy) throw new InvalidOperationException("Pausa la sesión antes de cambiar la configuración.");
+        settings = store.SaveConnectionSettings(endpoint, model, requestLimit, apiKey);
+        OnPropertyChanged(nameof(ModelName));
+        Status = "Configuración guardada. Pulsa Iniciar para aplicarla.";
+    }
+
     internal void AppendMessage(AdviceMessage message)
     {
         Messages.Add(message);

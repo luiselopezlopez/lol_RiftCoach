@@ -38,6 +38,9 @@ public partial class MainWindow : Window
 
     public IReadOnlyDictionary<string, FloatingPanel> Panels => panels;
 
+    private void OnOpenSettings(object sender, RoutedEventArgs args)
+        => new SettingsWindow(viewModel) { Owner = this }.ShowDialog();
+
     private async void OnLoaded(object sender, RoutedEventArgs args)
     {
         ApplyLayout(viewModel.LoadPanelLayout());

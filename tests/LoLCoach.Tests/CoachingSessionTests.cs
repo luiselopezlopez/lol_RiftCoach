@@ -164,13 +164,26 @@ public class CoachingSessionTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    [InlineData(721)]
+    [InlineData(100001)]
     public async Task InvalidFiniteLimitsRemainRejected(int limit)
     {
         var clock = new FakeTimeProvider();
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
             new CoachingSession(new FakeSource(clock), new ControlledClient(), clock)
                 .RunAsync(Profile, limit, new Collector(), default));
+    }
+
+    [Theory]
+    [InlineData(721)]
+    [InlineData(100000)]
+    public async Task ExpandedLimitsAreAcceptedBeforeCancellation(int limit)
+    {
+        var clock = new FakeTimeProvider();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            new CoachingSession(new FakeSource(clock), new ControlledClient(), clock)
+                .RunAsync(Profile, limit, new Collector(), cancellation.Token));
     }
 
     private sealed class FailingSource(TimeProvider clock) : IObservationSource

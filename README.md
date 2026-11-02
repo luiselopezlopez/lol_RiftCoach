@@ -50,7 +50,7 @@ Posicion, tamaño, orden y estado abierto/cerrado de cada ventana se guardan en 
 
 ## Primer uso
 
-1. Configura Endpoint, Model y ApiKey en el archivo local indicado abajo. No compartas claves por chat ni en el repositorio.
+1. Abre **Configuración** para configurar Endpoint, Model, ApiKey y RequestLimit, o edita el archivo local indicado abajo. No compartas claves por chat ni en el repositorio.
 2. Abre la aplicacion. Envia al modelo una pregunta simple de texto, sin imagen, con un tiempo de espera maximo de 30 segundos. Si falla, muestra el error y no empieza a consultar LoL.
 3. Cuando el modelo responde, espera la API local cada cinco segundos. Al aparecer una partida valida contra bots y una unica ventana visible de League of Legends, comienza el envio automaticamente. No hace falta pulsar Iniciar ni completar el cuestionario.
 4. Partida muestra campeon propio, nivel, vida, porcentaje restante, oro, tiempo de partida y verificacion de rivales, con hora de actualizacion.
@@ -61,7 +61,9 @@ Posicion, tamaño, orden y estado abierto/cerrado de cada ventana se guardan en 
 
 ## Configuracion local
 
-La aplicacion busca `localsettings.json` primero junto al ejecutable, despues en la carpeta de trabajo y despues en las carpetas superiores del ejecutable (por ejemplo, la raiz del proyecto). Si no encuentra ninguna de esas copias, usa `%LOCALAPPDATA%/LoLCoach/localsettings.json`. La ruta realmente utilizada aparece en Depuracion. No se ignora la configuracion del proyecto en favor de una copia antigua de AppData. `Model` es el nombre del despliegue que se envia a Azure, no necesariamente el nombre comercial del modelo. No hay un formulario de configuracion dentro de la aplicacion.
+La aplicacion busca `localsettings.json` primero junto al ejecutable, despues en la carpeta de trabajo y despues en las carpetas superiores del ejecutable (por ejemplo, la raiz del proyecto). Si no encuentra ninguna de esas copias, usa `%LOCALAPPDATA%/LoLCoach/localsettings.json`. La ruta realmente utilizada aparece en Depuracion y en **Configuración**. No se ignora la configuracion del proyecto en favor de una copia antigua de AppData. `Model` es el nombre del despliegue que se envia a Azure, no necesariamente el nombre comercial del modelo.
+
+El menu **Configuración** permite editar Endpoint, Model, ApiKey y RequestLimit. Pausa la sesion antes de abrirlo. **Guardar** valida el endpoint Azure OpenAI HTTPS y el limite entero de 1 a 100000, conserva el perfil y las ventanas, y aplica los cambios al pulsar **Iniciar**. **Cancelar** descarta los cambios. La clave actual no se muestra: deja ApiKey vacia para conservarla, introduce una nueva para guardarla cifrada con DPAPI o marca **Borrar la clave guardada** para eliminarla (no la revoca en Azure). RequestLimit solo se aplica con el envio continuo desactivado.
 
 El formato esta en [localsettings.example.json](localsettings.example.json):
 
@@ -125,7 +127,7 @@ El endpoint inicial es el facilitado por el usuario. `gpt-6-luna` se trata como 
 - Solo las respuestas completas, de una linea y hasta 30 palabras se pueden leer en voz alta. El validador de formato no verifica la exactitud ni sustituye una revision humana o de Riot.
 - La inferencia dispone de hasta 2048 tokens de generacion para evitar truncados del modelo, aunque el consejo visible sigue limitado a 30 palabras. Las respuestas truncadas o filtradas muestran un motivo especifico. El maximo de tokens no implica que se consuman siempre todos y no garantiza que cualquier modelo complete la respuesta dentro del plazo de frescura.
 - El autoplay de voz lee cada consejo final nuevo, sin el anterior enfriamiento de 10 segundos. No acumula una cola: cancela la frase previa cuando llega otra valida. Evita repeticiones exactas consecutivas y Pausar silencia inmediatamente.
-- La frecuencia y el consumo dependen ahora del tiempo de captura y respuesta del modelo; pueden superar la antigua cadencia de doce llamadas por minuto. **Envio continuo** no se detiene por numero de solicitudes: dura hasta pausar, cerrar, finalizar la partida o encontrar un error/estado no verificable. Si se desactiva, se usa RequestLimit de localsettings, entre 1 y 720. La pregunta inicial es una solicitud de pago aparte del contador de capturas.
+- La frecuencia y el consumo dependen ahora del tiempo de captura y respuesta del modelo; pueden superar la antigua cadencia de doce llamadas por minuto. **Envio continuo** no se detiene por numero de solicitudes: dura hasta pausar, cerrar, finalizar la partida o encontrar un error/estado no verificable. Si se desactiva, se usa RequestLimit de localsettings, entre 1 y 100000. La pregunta inicial es una solicitud de pago aparte del contador de capturas.
 - El precio depende del despliegue, tokens de entrada/imagen/salida y region. Esta version muestra numero de solicitudes, tamano de imagen y latencia de frase completa, **no factura ni estima euros**. Cancelar puede generar cargos. Se usa el control de gasto externo configurado por el usuario; la aplicacion no aplica un limite monetario.
 - Los budgets de Azure Cost Management normalmente generan alertas; por si solos no detienen el servicio al alcanzar el importe. Si necesitas un corte efectivo, debes configurar y comprobar un mecanismo de bloqueo/automatizacion independiente. La aplicacion no ha verificado ese mecanismo ni cambia tu suscripcion.
 - Ante 429 o un error de Azure se detiene la sesion, sin reintentos automaticos ni acumulacion. Espera el periodo indicado por tu servicio antes de volver a iniciarla.

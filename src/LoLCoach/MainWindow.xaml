@@ -69,6 +69,9 @@
           <TextBlock Text="ENTRENADOR DE LA GRIETA" Style="{StaticResource Caption}" FontSize="10" Foreground="{StaticResource Blue2Brush}" Margin="1,0,0,0"/>
         </StackPanel>
         <Menu x:Name="MainMenu" VerticalAlignment="Center" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="14">
+          <MenuItem x:Name="ConfigurationMenuItem" Header="_Configuración" Padding="10,6"
+                    IsEnabled="{Binding CanChangeMode}" Click="OnOpenSettings"
+                    ToolTip="Pausa la sesión para editar la configuración."/>
           <MenuItem Header="_Ventanas" Padding="10,6">
             <MenuItem Header="Campeón y miniguía" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=ChampionPanel}"/>
             <MenuItem Header="Entrenamiento" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=TrainingPanel}"/>

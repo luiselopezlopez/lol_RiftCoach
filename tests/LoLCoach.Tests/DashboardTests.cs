@@ -55,6 +55,7 @@ public class DashboardTests
                 Assert.Equal(0, reader.Calls);
                 Assert.Equal(0, captureCalls);
                 Assert.Equal(5, window.Panels.Count);
+                Assert.False(window.ConfigurationMenuItem.IsEnabled);
                 var botOverride = Assert.IsType<CheckBox>(window.FindName("AllowUnverifiedBotOpponentsForDebuggingCheckBox"));
                 Assert.False(botOverride.IsChecked);
                 Assert.DoesNotContain(window.Panels.Values, panel => panel.Title == "Conexión");
@@ -220,12 +221,71 @@ public class DashboardTests
                 }
                 finally { await pending.ShutdownAsync(); }
                 await VerifyFloatingWindowsAsync(store);
+                VerifyConfiguration(store);
             }
             finally
             {
                 window.Close(); await RenderAsync(); store.Reset(); application.Shutdown();
             }
         });
+    }
+
+    private static void VerifyConfiguration(SettingsService store)
+    {
+        using var viewModel = new DashboardViewModel(store, false, speechService: new RecordingSpeech());
+        var original = File.ReadAllText(store.LocalSettingsPath);
+        ExerciseDialog(dialog =>
+        {
+            Assert.Equal(store.Load().Endpoint, dialog.EndpointInput.Text);
+            Assert.Equal(store.Load().Deployment, dialog.ModelInput.Text);
+            Assert.Empty(dialog.ApiKeyInput.Password);
+            dialog.ModelInput.Text = "cancelled-model";
+            dialog.ApiKeyInput.Password = "cancelled-secret";
+        });
+        Assert.Equal(original, File.ReadAllText(store.LocalSettingsPath));
+
+        ExerciseDialog(dialog =>
+        {
+            dialog.RequestLimitInput.Text = "1.5";
+            dialog.SaveButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Assert.Contains("entero", dialog.ErrorText.Text);
+            Assert.Equal(original, File.ReadAllText(store.LocalSettingsPath));
+            dialog.EndpointInput.Text = "https://configured.openai.azure.com/openai/v1/";
+            dialog.ModelInput.Text = "configured-model";
+            dialog.RequestLimitInput.Text = "100000";
+            dialog.ApiKeyInput.Password = "fake-dialog-secret";
+            dialog.SaveButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Assert.True(dialog.DialogResult);
+        });
+        Assert.Equal("configured-model", viewModel.ModelName);
+        Assert.Equal(100000, store.Load().RequestLimit);
+        Assert.Equal("fake-dialog-secret", store.LoadKey());
+        Assert.DoesNotContain("fake-dialog-secret", File.ReadAllText(store.LocalSettingsPath));
+
+        ExerciseDialog(dialog =>
+        {
+            Assert.Empty(dialog.ApiKeyInput.Password);
+            dialog.DeleteKeyInput.IsChecked = true;
+            Assert.False(dialog.ApiKeyInput.IsEnabled);
+            dialog.SaveButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Assert.True(dialog.DialogResult);
+        });
+        Assert.Null(store.LoadKey());
+
+        void ExerciseDialog(Action<SettingsWindow> exercise)
+        {
+            var dialog = new SettingsWindow(viewModel);
+            Exception? failure = null;
+            dialog.Loaded += (_, _) =>
+            {
+                try { exercise(dialog); }
+                catch (Exception exception) { failure = exception; }
+                finally { if (dialog.IsVisible) dialog.Close(); }
+            };
+            dialog.ShowDialog();
+            Assert.Empty(dialog.ApiKeyInput.Password);
+            if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+        }
     }
 
     private static async Task VerifyFloatingWindowsAsync(SettingsService store)

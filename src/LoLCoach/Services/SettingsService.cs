@@ -86,10 +86,7 @@ public sealed class SettingsService
     {
         try
         {
-            var local = ReadLocalSettings();
-            return new() { Endpoint = local.Endpoint, Deployment = local.Model,
-                RequestLimit = local.RequestLimit, Profile = local.Profile,
-                AllowUnverifiedBotOpponentsForDebugging = local.AllowUnverifiedBotOpponentsForDebugging };
+            return LoadForEditing();
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
         {
@@ -97,17 +94,45 @@ public sealed class SettingsService
         }
     }
 
+    public AppSettings LoadForEditing() => ToAppSettings(ReadLocalSettings());
+
+    private static AppSettings ToAppSettings(LocalSettings local) => new()
+    {
+        Endpoint = local.Endpoint, Deployment = local.Model, RequestLimit = local.RequestLimit,
+        Profile = local.Profile, AllowUnverifiedBotOpponentsForDebugging = local.AllowUnverifiedBotOpponentsForDebugging
+    };
+
     public void Save(AppSettings settings)
     {
-        ValidateEndpoint(settings.Endpoint);
-        if (string.IsNullOrWhiteSpace(settings.Deployment) || settings.Deployment.Length > 128)
-            throw new ArgumentException("Introduce el nombre del despliegue.");
-        if (settings.RequestLimit is < 1 or > 720)
-            throw new ArgumentException("El límite debe estar entre 1 y 720 solicitudes.");
+        ValidateSettings(settings);
         var local = ReadLocalSettings();
         WriteLocalSettings(local with { Endpoint = settings.Endpoint, Model = settings.Deployment,
             RequestLimit = settings.RequestLimit, Profile = settings.Profile,
             AllowUnverifiedBotOpponentsForDebugging = settings.AllowUnverifiedBotOpponentsForDebugging });
+    }
+
+    private static void ValidateSettings(AppSettings settings)
+    {
+        ValidateEndpoint(settings.Endpoint);
+        if (string.IsNullOrWhiteSpace(settings.Deployment) || settings.Deployment.Length > 128)
+            throw new ArgumentException("Introduce el nombre del despliegue.");
+        if (settings.RequestLimit is < 1 or > 100000)
+            throw new ArgumentException("El límite debe estar entre 1 y 100000 solicitudes.");
+    }
+
+    public AppSettings SaveConnectionSettings(string endpoint, string model, int requestLimit, string? apiKey)
+    {
+        var settings = new AppSettings { Endpoint = endpoint.Trim(), Deployment = model.Trim(), RequestLimit = requestLimit };
+        ValidateSettings(settings);
+        var local = ReadLocalSettings();
+        var updated = local with
+        {
+            Endpoint = ValidateEndpoint(settings.Endpoint).AbsoluteUri, Model = settings.Deployment,
+            RequestLimit = settings.RequestLimit,
+            ApiKey = apiKey is null ? local.ApiKey : string.IsNullOrWhiteSpace(apiKey) ? null : ProtectKey(apiKey)
+        };
+        WriteLocalSettings(updated);
+        return ToAppSettings(updated);
     }
 
     public IReadOnlyDictionary<string, PanelLayout> LoadLayout()
@@ -131,12 +156,17 @@ public sealed class SettingsService
     public void SaveKey(string key)
     {
         if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Introduce una clave válida.");
+        var local = ReadLocalSettings();
+        WriteLocalSettings(local with { ApiKey = ProtectKey(key) });
+    }
+
+    private static string ProtectKey(string key)
+    {
         var plaintext = Encoding.UTF8.GetBytes(key.Trim());
         try
         {
             var encrypted = ProtectedData.Protect(plaintext, null, DataProtectionScope.CurrentUser);
-            var local = ReadLocalSettings();
-            WriteLocalSettings(local with { ApiKey = ProtectedKeyPrefix + Convert.ToBase64String(encrypted) });
+            return ProtectedKeyPrefix + Convert.ToBase64String(encrypted);
         }
         finally { CryptographicOperations.ZeroMemory(plaintext); }
     }

@@ -1,0 +1,53 @@
+<Window x:Class="LoLCoach.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configuración" Width="620" Height="650" MinWidth="460" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="#010A13" Foreground="#F0E6D2" FontFamily="Segoe UI" FontSize="15">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Themes/Hextech.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="Padding" Value="0,4"/>
+      </Style>
+    </ResourceDictionary>
+  </Window.Resources>
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Margin="0,0,12,0">
+        <TextBlock Text="CONEXIÓN AL MODELO" Style="{StaticResource Caption}"/>
+        <Label Content="_Endpoint" Target="{Binding ElementName=EndpointInput}"/>
+        <TextBox x:Name="EndpointInput" AutomationProperties.Name="Endpoint"/>
+        <Label Content="_Model (nombre del despliegue)" Target="{Binding ElementName=ModelInput}"/>
+        <TextBox x:Name="ModelInput" MaxLength="128" AutomationProperties.Name="Model"/>
+        <Label Content="_ApiKey" Target="{Binding ElementName=ApiKeyInput}"/>
+        <PasswordBox x:Name="ApiKeyInput" Padding="8" Margin="0,0,0,8"
+                     Background="{StaticResource AbyssBrush}" Foreground="{StaticResource TextPrimaryBrush}"
+                     BorderBrush="{StaticResource Gold4Brush}" AutomationProperties.Name="ApiKey"/>
+        <TextBlock Text="Deja la clave vacía para conservar la actual. Una clave nueva se guarda cifrada para tu usuario de Windows."
+                   TextWrapping="Wrap" Style="{StaticResource Label}"/>
+        <CheckBox x:Name="DeleteKeyInput" Content="Borrar la clave guardada" Margin="0,8,0,12"
+                  Checked="OnDeleteKeyChanged" Unchecked="OnDeleteKeyChanged"/>
+        <Label Content="_RequestLimit (1–100000)" Target="{Binding ElementName=RequestLimitInput}"/>
+        <TextBox x:Name="RequestLimitInput" AutomationProperties.Name="RequestLimit"/>
+        <TextBlock Text="El límite solo se aplica cuando el envío continuo está desactivado."
+                   TextWrapping="Wrap" Style="{StaticResource Label}" Margin="0,0,0,12"/>
+        <TextBlock Text="Los cambios se aplican al pulsar Iniciar." TextWrapping="Wrap"/>
+        <TextBlock Text="{Binding LocalSettingsPath}" TextWrapping="Wrap" Style="{StaticResource Label}" Margin="0,8,0,12"/>
+        <TextBlock x:Name="ErrorText" Foreground="{StaticResource RedBrush}" TextWrapping="Wrap"
+                   AutomationProperties.LiveSetting="Assertive"/>
+      </StackPanel>
+    </ScrollViewer>
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button x:Name="SaveButton" Content="Guardar" IsDefault="True" Style="{StaticResource Primary}" Click="OnSave"/>
+      <Button Content="Cancelar" IsCancel="True" Margin="12,0,0,0"/>
+    </StackPanel>
+  </Grid>
+</Window>

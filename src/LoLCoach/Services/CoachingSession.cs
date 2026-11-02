@@ -19,7 +19,7 @@ public sealed class CoachingSession(IObservationSource source, ICoachingClient c
     public async Task RunAsync(PlayerProfile profile, int? requestLimit, IProgress<SessionUpdate> progress,
         CancellationToken cancellationToken)
     {
-        if (requestLimit is < 1 or > 720) throw new ArgumentOutOfRangeException(nameof(requestLimit));
+        if (requestLimit is < 1 or > 100000) throw new ArgumentOutOfRangeException(nameof(requestLimit));
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var requests = 0;
         var reachedLimit = false;
