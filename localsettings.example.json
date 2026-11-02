@@ -3,5 +3,6 @@
   "Model": "gpt-6-luna",
   "ApiKey": "",
   "RequestLimit": 12,
+  "AllowUnverifiedBotOpponentsForDebugging": false,
   "Profile": null
 }

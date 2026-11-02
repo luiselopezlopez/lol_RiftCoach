@@ -4,7 +4,7 @@
         Title="Rift Coach" Width="1120" Height="840" MinWidth="760" MinHeight="640"
         Background="#010A13" Foreground="#F0E6D2" FontFamily="Spiegel, Segoe UI" FontSize="15"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True"
-        WindowStartupLocation="CenterScreen" Closing="OnClosing" SourceInitialized="OnSourceInitialized">
+        WindowStartupLocation="CenterScreen" WindowState="Maximized" Closing="OnClosing" SourceInitialized="OnSourceInitialized">
   <Window.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
@@ -184,6 +184,14 @@
                 <StackPanel>
                   <CheckBox IsChecked="{Binding AutomaticStartEnabled}" IsEnabled="{Binding CanChangeMode}"><TextBlock Text="Inicio automático al detectar partida"/></CheckBox>
                   <CheckBox IsChecked="{Binding ContinuousSending}" IsEnabled="{Binding CanChangeMode}"><TextBlock Text="Envío continuo · sin límite de solicitudes"/></CheckBox>
+                  <CheckBox x:Name="AllowUnverifiedBotOpponentsForDebuggingCheckBox"
+                            IsChecked="{Binding AllowUnverifiedBotOpponentsForDebugging}"
+                            IsEnabled="{Binding CanChangeMode}" Margin="0,8,0,0">
+                    <TextBlock Text="Depuración: omitir verificación de bots" TextWrapping="Wrap"/>
+                  </CheckBox>
+                  <TextBlock Text="Puede permitir sesiones PvP. Úsalo solo para pruebas controladas."
+                             Style="{StaticResource Label}" Foreground="{StaticResource Gold2Brush}"
+                             TextWrapping="Wrap" Margin="22,0,0,10"/>
                   <TextBlock Text="MODELO" Style="{StaticResource Caption}"/>
                   <TextBlock Text="{Binding ModelName}" Margin="0,2,0,2" FontFamily="{StaticResource NumberFont}"/>
                   <TextBlock Text="{Binding ModelStatus}" Style="{StaticResource Label}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,14"/>

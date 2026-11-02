@@ -17,10 +17,13 @@ public sealed class LiveClientDataService : IPracticeStateReader, IDisposable
 {
     private readonly HttpClient client;
     private readonly X509Certificate2 root;
+    private readonly bool allowUnverifiedBotOpponentsForDebugging;
 
-    private LiveClientDataService(X509Certificate2 root, Action<ApiDiagnostic>? diagnostics)
+    private LiveClientDataService(X509Certificate2 root, Action<ApiDiagnostic>? diagnostics,
+        bool allowUnverifiedBotOpponentsForDebugging)
     {
         this.root = root;
+        this.allowUnverifiedBotOpponentsForDebugging = allowUnverifiedBotOpponentsForDebugging;
         var handler = new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false };
         handler.ServerCertificateCustomValidationCallback = (request, certificate, _, errors) =>
         {
@@ -38,11 +41,11 @@ public sealed class LiveClientDataService : IPracticeStateReader, IDisposable
     }
 
     public static async Task<LiveClientDataService> CreateAsync(CancellationToken cancellationToken,
-        Action<ApiDiagnostic>? diagnostics = null)
+        Action<ApiDiagnostic>? diagnostics = null, bool allowUnverifiedBotOpponentsForDebugging = false)
     {
         using var download = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         var pem = await download.GetStringAsync("https://static.developer.riotgames.com/docs/lol/riotgames.pem", cancellationToken);
-        return new(X509Certificate2.CreateFromPem(pem), diagnostics);
+        return new(X509Certificate2.CreateFromPem(pem), diagnostics, allowUnverifiedBotOpponentsForDebugging);
     }
 
     public async Task<GameSnapshot> ReadAsync(CancellationToken cancellationToken)
@@ -65,7 +68,8 @@ public sealed class LiveClientDataService : IPracticeStateReader, IDisposable
         using var active = JsonDocument.Parse(await activeTask);
         using var stats = JsonDocument.Parse(await statsTask);
         using var players = JsonDocument.Parse(await playersTask);
-        var verification = BotMatchVerifier.Verify(active.RootElement, players.RootElement);
+        var verification = BotMatchVerifier.Verify(active.RootElement, players.RootElement,
+            allowUnverifiedBotOpponentsForDebugging);
         var snapshot = GameSnapshot.Parse(active.RootElement, stats.RootElement, players.RootElement);
         if (snapshot.GameTime is not >= 0 || snapshot.Health is null || snapshot.MaxHealth is not > 0)
             throw new PracticeUnavailableException("Estado propio incompleto; no se enviará esta observación.");

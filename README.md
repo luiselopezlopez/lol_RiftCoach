@@ -26,6 +26,14 @@ dotnet publish src/LoLCoach/LoLCoach.csproj -c Release -r win-x64 --self-contain
 
 Abre el ejecutable `LoLCoach.exe` de la carpeta de publicacion.
 
+Para generar un instalador Windows `win-x64`, instala [Inno Setup 6](https://jrsoftware.org/isinfo.php) y ejecuta:
+
+```powershell
+.\installer\build-installer.ps1
+```
+
+El instalador permite elegir la carpeta, crea accesos directos y no incluye `localsettings.json` ni credenciales. El resultado queda en `artifacts/installer/RiftCoach-Setup-win-x64.exe`.
+
 ## Ventanas
 
 La interfaz se compone de ventanas flotantes dentro de la ventana principal. Cada una se mueve arrastrando su barra de titulo, se redimensiona desde los bordes izquierdo, derecho, inferior o las esquinas inferiores, y se cierra con la X. El menu **Ventanas** permite volver a abrir cualquier ventana cerrada o restablecer la disposicion por defecto.
@@ -96,6 +104,8 @@ La guia tiene un plazo total de 30 segundos y supone una consulta adicional de p
 ## Practicar contra bots
 
 Cada consulta lee `activeplayer`, `gamestats` y `playerlist`, localiza al jugador humano por Riot ID, identifica su equipo y exige que todos los rivales declaren `isBot=true`. Puede haber aliados humanos, como en cooperativo contra IA. Una partida sin rivales o con datos ambiguos no se admite. Una respuesta HTTP por si sola no equivale a verificacion de bots.
+
+Para depuracion local se puede establecer `"AllowUnverifiedBotOpponentsForDebugging": true` en `localsettings.json`. Esto omite solo la comprobacion de `isBot` de los rivales; sigue exigiendo jugador local humano, equipos y al menos un rival. El estado indica cuando se ha omitido la verificacion. Esta opcion **no demuestra** que la partida sea contra bots y puede permitir continuar en partidas PvP; dejala en `false` salvo para pruebas controladas.
 
 Si la partida ya estaba abierta, empieza despues de que responda la pregunta inicial. Si la API no esta disponible o no se pueden verificar los bots, sigue esperando sin enviar capturas a Azure. Si faltan campos durante la sesion, aparece un rival humano, se cierra/minimiza el juego, no llega una captura nueva o falla la conexion, se detiene y descarta el consejo en curso.
 

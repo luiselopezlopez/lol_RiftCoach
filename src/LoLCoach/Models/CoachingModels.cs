@@ -206,14 +206,17 @@ public sealed record Observation(byte[] Jpeg, GameSnapshot State, long CapturedA
 public sealed class VerifiedBotPractice
 {
     public string Champion { get; }
-    internal VerifiedBotPractice(string champion) => Champion = champion;
+    public bool BotVerificationBypassed { get; }
+    internal VerifiedBotPractice(string champion, bool botVerificationBypassed = false)
+        => (Champion, BotVerificationBypassed) = (champion, botVerificationBypassed);
 }
 
 public sealed class PracticeUnavailableException(string message) : InvalidOperationException(message);
 
 public static class BotMatchVerifier
 {
-    public static VerifiedBotPractice Verify(JsonElement activePlayer, JsonElement players)
+    public static VerifiedBotPractice Verify(JsonElement activePlayer, JsonElement players,
+        bool allowUnverifiedBotOpponentsForDebugging = false)
     {
         static string? Text(JsonElement element, string property) => element.ValueKind == JsonValueKind.Object
             && element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
@@ -225,15 +228,18 @@ public static class BotMatchVerifier
         if (string.IsNullOrWhiteSpace(localId) || players.ValueKind != JsonValueKind.Array) throw Unavailable();
         var roster = players.EnumerateArray().ToArray();
         if (roster.Length is < 2 or > 10 || roster.Any(player => player.ValueKind != JsonValueKind.Object
-            || Text(player, "team") is not ("ORDER" or "CHAOS") || IsBot(player) is null)) throw Unavailable();
+            || Text(player, "team") is not ("ORDER" or "CHAOS"))) throw Unavailable();
         var matches = roster.Where(player => Text(player, "riotId") == localId).ToArray();
         if (matches.Length != 1 || IsBot(matches[0]) != false) throw Unavailable();
         var team = Text(matches[0], "team");
         var opponents = roster.Where(player => Text(player, "team") != team).ToArray();
-        if (opponents.Length == 0 || opponents.Any(player => IsBot(player) != true)) throw Unavailable();
+        if (opponents.Length == 0
+            || (!allowUnverifiedBotOpponentsForDebugging
+                && (roster.Any(player => IsBot(player) is null) || opponents.Any(player => IsBot(player) != true))))
+            throw Unavailable();
         var champion = Text(matches[0], "championName");
         if (string.IsNullOrWhiteSpace(champion)) throw Unavailable();
-        return new(champion);
+        return new(champion, allowUnverifiedBotOpponentsForDebugging);
     }
 }
 public sealed record AdviceUpdate(string Text, bool IsFinal, TimeSpan Age);
@@ -272,7 +278,7 @@ public interface ICoachingClient
 public static class AdviceValidator
 {
     private static readonly Regex InstructionPattern = new(
-        @"\A(?:Ataca\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*\s+con\s+(?:[QWERDF1-7](?:\+[QWERDF1-7]){0,7}|clic derecho)|Ataca\s+(?!.*\scon\s)[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Apoya\s+(?:Top|Mid|Bot)|Huye(?:\s+de\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*)?|(?:Aléjate|Alejate|Sepárate|Separate)\s+de\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Compra\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Ve\s+a\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Avanza|Retrocede|Espera|Mejora\s+[QWER]|Usa\s+[QWERDF1-7](?:\s*(?:\+|,)?\s*[QWERDF1-7]){0,7}|Pulsa\s+B|Escóndete)[.!]?\z",
+        @"\A(?:Ataca\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*\s+con\s+(?:[QWERDF1-7](?:\+[QWERDF1-7]){0,7}|clic derecho)|Ataca\s+(?!.*\scon\s)[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Apoya\s+(?:Top|Mid|Bot)|Congela(?:\s+oleada)?|Empuja\s+(?:lento|r[aá]pido)|(?:Presiona|Farmea)\s+(?:Top|Mid|Bot)|Huye(?:\s+de\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*)?|(?:Aléjate|Alejate|Sepárate|Separate)\s+de\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Compra\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Ve\s+a\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Avanza|Retrocede|Espera|Mejora\s+[QWER]|Usa\s+[QWERDF1-7](?:\s*(?:\+|,)?\s*[QWERDF1-7]){0,7}|Pulsa\s+B|Escóndete)[.!]?\z",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static bool IsValid(string text)

@@ -46,6 +46,7 @@ public class DashboardTests
             try
             {
                 await RenderAsync();
+                Assert.Equal(WindowState.Maximized, window.WindowState);
                 Assert.True(viewModel.AutomaticStartEnabled);
                 Assert.Null(viewModel.SelectedChampion);
                 Assert.Equal(173, viewModel.Champions.Length);
@@ -54,6 +55,8 @@ public class DashboardTests
                 Assert.Equal(0, reader.Calls);
                 Assert.Equal(0, captureCalls);
                 Assert.Equal(5, window.Panels.Count);
+                var botOverride = Assert.IsType<CheckBox>(window.FindName("AllowUnverifiedBotOpponentsForDebuggingCheckBox"));
+                Assert.False(botOverride.IsChecked);
                 Assert.DoesNotContain(window.Panels.Values, panel => panel.Title == "Conexión");
                 model.Reply.SetResult("Disponible.");
                 await reader.Started.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -62,6 +65,7 @@ public class DashboardTests
                 Assert.Equal("Disponible.", viewModel.ModelReply);
                 Assert.True(viewModel.IsWaitingForGame);
                 Assert.Equal(0, model.StreamCalls);
+                window.WindowState = WindowState.Normal;
                 window.Width = 760; await RenderAsync(); SaveScreenshot(window, "startup-wait-760");
                 reader.Ready.SetResult(new(new(120, 3, 500, 800, 600), TestObservations.Practice, TimeProvider.System.GetTimestamp()));
                 await model.StreamStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -138,6 +142,13 @@ public class DashboardTests
                 var latestAdviceText = Assert.IsType<TextBlock>(FindTextBlock(window, "Retrocede."));
                 Assert.Equal(54, latestAdviceText.FontSize);
                 Assert.Equal(Color.FromRgb(200, 170, 110), Assert.IsType<SolidColorBrush>(latestAdviceText.Foreground).Color);
+                botOverride.IsChecked = true;
+                await RenderAsync();
+                Assert.True(viewModel.AllowUnverifiedBotOpponentsForDebugging);
+                Assert.True(store.Load().AllowUnverifiedBotOpponentsForDebugging);
+                botOverride.IsChecked = false;
+                await RenderAsync();
+                Assert.False(store.Load().AllowUnverifiedBotOpponentsForDebugging);
                 window.Width = 760; await RenderAsync(); SaveScreenshot(window, "advice-history-760");
                 window.Width = 1120; await RenderAsync(); SaveScreenshot(window, "advice-history-1120");
                 var columns = FindAll<Border>(window.ChampionsPanel).Where(border => border.DataContext is PlayerStatsRow && border.Name == "Column").ToList();
@@ -226,6 +237,7 @@ public class DashboardTests
         try
         {
             await RenderAsync();
+            Assert.Equal(WindowState.Maximized, window.WindowState);
             var panel = window.TrainingPanel;
             var thumbs = FindAll<Thumb>(panel).ToList();
             thumbs.Single(thumb => thumb.Name == "PART_TitleBar").RaiseEvent(new DragDeltaEventArgs(40, 30));
@@ -241,10 +253,14 @@ public class DashboardTests
             Assert.False(panel.IsOpen); Assert.Equal(Visibility.Collapsed, panel.Visibility);
             var menuItem = FindLogical<MenuItem>(window.MainMenu).Single(item => Equals(item.Header, "Entrenamiento"));
             Assert.False(menuItem.IsChecked);
+            var expectedLayouts = window.CaptureLayout();
             window.Close(); closed = true; await RenderAsync();
 
             restored = new MainWindow(new DashboardViewModel(store, false, speechService: new RecordingSpeech()), false);
             restored.Show(); await RenderAsync();
+            Assert.Equal(WindowState.Maximized, restored.WindowState);
+            foreach (var (id, expectedLayout) in expectedLayouts)
+                Assert.Equal(expectedLayout, restored.CaptureLayout()[id]);
             var layout = restored.TrainingPanel.GetLayout();
             Assert.False(layout.IsOpen);
             Assert.Equal((expected.Left, expected.Top, expected.Width, expected.Height), (layout.Left, layout.Top, layout.Width, layout.Height));

@@ -12,6 +12,7 @@ public sealed record AppSettings
     public string Deployment { get; init; } = "gpt-6-luna";
     public int RequestLimit { get; init; } = 12;
     public PlayerProfile? Profile { get; init; }
+    public bool AllowUnverifiedBotOpponentsForDebugging { get; init; }
 }
 
 public sealed record PanelLayout(double Left, double Top, double Width, double Height, bool IsOpen, int ZIndex = 0)
@@ -38,6 +39,7 @@ public sealed class SettingsService
         public string? ApiKey { get; init; }
         public int RequestLimit { get; init; } = 12;
         public PlayerProfile? Profile { get; init; }
+        public bool AllowUnverifiedBotOpponentsForDebugging { get; init; }
         public Dictionary<string, PanelLayout>? Layout { get; init; }
     }
 
@@ -86,7 +88,8 @@ public sealed class SettingsService
         {
             var local = ReadLocalSettings();
             return new() { Endpoint = local.Endpoint, Deployment = local.Model,
-                RequestLimit = local.RequestLimit, Profile = local.Profile };
+                RequestLimit = local.RequestLimit, Profile = local.Profile,
+                AllowUnverifiedBotOpponentsForDebugging = local.AllowUnverifiedBotOpponentsForDebugging };
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
         {
@@ -103,7 +106,8 @@ public sealed class SettingsService
             throw new ArgumentException("El límite debe estar entre 1 y 720 solicitudes.");
         var local = ReadLocalSettings();
         WriteLocalSettings(local with { Endpoint = settings.Endpoint, Model = settings.Deployment,
-            RequestLimit = settings.RequestLimit, Profile = settings.Profile });
+            RequestLimit = settings.RequestLimit, Profile = settings.Profile,
+            AllowUnverifiedBotOpponentsForDebugging = settings.AllowUnverifiedBotOpponentsForDebugging });
     }
 
     public IReadOnlyDictionary<string, PanelLayout> LoadLayout()

@@ -80,10 +80,12 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         store = settingsService ?? new();
         this.loadCatalog = loadCatalog;
         speech = speechService ?? new SpeechService();
-        createModel = coachingClientFactory ?? ((options, key, report) => new FoundryCoachingService(options, key, diagnostics: report));
-        createReader = practiceReaderFactory ?? (async (report, token) => await LiveClientDataService.CreateAsync(token, report));
-        createSource = observationSourceFactory ?? CreateLiveSourceAsync;
         settings = store.Load();
+        allowUnverifiedBotOpponentsForDebugging = settings.AllowUnverifiedBotOpponentsForDebugging;
+        createModel = coachingClientFactory ?? ((options, key, report) => new FoundryCoachingService(options, key, diagnostics: report));
+        createReader = practiceReaderFactory ?? (async (report, token) => await LiveClientDataService.CreateAsync(token, report,
+            settings.AllowUnverifiedBotOpponentsForDebugging));
+        createSource = observationSourceFactory ?? CreateLiveSourceAsync;
         selectedChampion = Champions.FirstOrDefault(champion => champion.Id == settings.Profile?.Champion);
         if (settings.Profile?.Answers.Length == 8 && settings.Profile.Answers.All(answer => answer is >= 0 and < 3))
             for (var index = 0; index < 8; index++) Questions[index].SelectedIndex = settings.Profile.Answers[index];
@@ -131,6 +133,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private bool automaticStartEnabled = true;
     [ObservableProperty] private bool continuousSending = true;
+    [ObservableProperty] private bool allowUnverifiedBotOpponentsForDebugging;
     [ObservableProperty] private bool isWaitingForGame;
     [ObservableProperty] private bool voiceEnabled;
     [ObservableProperty] private string? selectedVoice;
@@ -196,6 +199,23 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         foreach (var question in Questions) question.SelectedIndex = -1;
     }
     [RelayCommand] private void ChooseChampion(ChampionViewModel champion) => SelectedChampion = champion.Choice;
+    partial void OnAllowUnverifiedBotOpponentsForDebuggingChanged(bool value)
+    {
+        if (settings.AllowUnverifiedBotOpponentsForDebugging == value) return;
+        try
+        {
+            var updatedSettings = settings with { AllowUnverifiedBotOpponentsForDebugging = value };
+            store.Save(updatedSettings);
+            settings = updatedSettings;
+        }
+        catch (Exception exception) when (IsExpected(exception))
+        {
+            allowUnverifiedBotOpponentsForDebugging = settings.AllowUnverifiedBotOpponentsForDebugging;
+            OnPropertyChanged(nameof(AllowUnverifiedBotOpponentsForDebugging));
+            Status = "No se pudo guardar el ajuste de depuración.";
+        }
+    }
+
     [RelayCommand] private void SaveProfile()
     {
         if (SelectedChampion is null) return;
@@ -386,17 +406,18 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         AutomaticStartEnabled = false; active?.Cancel(); generation++; ClearAdvice(); Scene = null;
         Status = "Detenido"; ApiStatus = "Sin conexión activa";
     }
-    private void ClearAdvice()
+    private void ClearAdvice(bool cancelSpeech = true)
     {
         if (activeMessage is not null) activeMessage.State = "Incompleto · no vigente";
         activeMessage = null;
-        Advice = ""; AdviceState = "Sin consejo"; AgeLabel = ""; adviceUpdatedAt = 0; speech.Cancel();
+        Advice = ""; AdviceState = "Sin consejo"; AgeLabel = ""; adviceUpdatedAt = 0;
+        if (cancelSpeech) speech.Cancel();
     }
     private void Tick()
     {
         if (adviceUpdatedAt == 0) return;
         var age = adviceAge + TimeProvider.System.GetElapsedTime(adviceUpdatedAt); AgeLabel = $"{age.TotalSeconds:0.0} s desde la captura";
-        if (age >= CoachingSession.MaximumAge) ClearAdvice();
+        if (age >= CoachingSession.MaximumAge) ClearAdvice(cancelSpeech: false);
     }
     private static bool IsExpected(Exception exception) => exception is ArgumentException or InvalidOperationException or HttpRequestException
         or ClientResultException or OperationCanceledException or System.IO.IOException or CryptographicException or UnauthorizedAccessException

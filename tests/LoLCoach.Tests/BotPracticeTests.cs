@@ -36,6 +36,35 @@ public class BotPracticeTests
     public void HumanUnknownAndMalformedOpponentsFailClosed(string opponent)
         => Assert.Throws<PracticeUnavailableException>(() => Verify(Active, $"[{Local},{Bot},{opponent}]"));
 
+    [Theory]
+    [InlineData("{\"team\":\"CHAOS\",\"isBot\":false}")]
+    [InlineData("{\"team\":\"CHAOS\"}")]
+    [InlineData("{\"team\":\"CHAOS\",\"isBot\":\"true\"}")]
+    public void DebugOverrideAllowsUnverifiedOpponentsButMarksTheResult(string opponent)
+    {
+        using var activeJson = JsonDocument.Parse(Active);
+        using var playersJson = JsonDocument.Parse($"[{Local},{opponent}]");
+
+        var result = BotMatchVerifier.Verify(activeJson.RootElement, playersJson.RootElement,
+            allowUnverifiedBotOpponentsForDebugging: true);
+
+        Assert.Equal("Garen", result.Champion);
+        Assert.True(result.BotVerificationBypassed);
+    }
+
+    [Fact]
+    public void DebugOverrideStillRequiresLocalHumanAndAtLeastOneOpponent()
+    {
+        using var activeJson = JsonDocument.Parse(Active);
+        using var localBot = JsonDocument.Parse("""[{"riotId":"local#test","team":"ORDER","isBot":true,"championName":"Garen"},{"team":"CHAOS"}]""");
+        using var noOpponents = JsonDocument.Parse($"[{Local},{Ally}]");
+
+        Assert.Throws<PracticeUnavailableException>(() => BotMatchVerifier.Verify(activeJson.RootElement,
+            localBot.RootElement, allowUnverifiedBotOpponentsForDebugging: true));
+        Assert.Throws<PracticeUnavailableException>(() => BotMatchVerifier.Verify(activeJson.RootElement,
+            noOpponents.RootElement, allowUnverifiedBotOpponentsForDebugging: true));
+    }
+
     [Fact]
     public void MissingLocalIdentityEmptyRosterAndNoOpponentsFailClosed()
     {

@@ -28,7 +28,10 @@ public sealed class AutomaticCoachingWorkflow(IModelClient model,
         progress.Report(new("Esperando el inicio de la partida", WaitingForGame: true));
         var detection = new ForwardProgress<string>(status => progress.Report(new(status)));
         var state = await new PracticeStartDetector(reader, clock).WaitAsync(detection, cancellationToken);
-        progress.Report(new("Partida detectada", Snapshot: state.Snapshot, Champion: state.Verification.Champion, WaitingForGame: false));
+        var detectedStatus = state.Verification.BotVerificationBypassed
+            ? "Partida detectada; verificación de bots omitida (depuración)"
+            : "Partida detectada";
+        progress.Report(new(detectedStatus, Snapshot: state.Snapshot, Champion: state.Verification.Champion, WaitingForGame: false));
         if (model is IChampionGuideClient guideClient)
         {
             progress.Report(new("Preparando miniguía del campeón"));

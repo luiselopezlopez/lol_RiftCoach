@@ -82,9 +82,12 @@ public class IntegrationBoundaryTests
         try
         {
             System.IO.File.WriteAllText(service.LocalSettingsPath,
-                """{"Endpoint":"https://test.openai.azure.com/openai/v1/","Model":"manual-model","ApiKey":"fake-manual-key"}""");
+                """{"Endpoint":"https://test.openai.azure.com/openai/v1/","Model":"manual-model","ApiKey":"fake-manual-key","AllowUnverifiedBotOpponentsForDebugging":true}""");
             Assert.Equal("manual-model", service.Load().Deployment);
+            Assert.True(service.Load().AllowUnverifiedBotOpponentsForDebugging);
             Assert.Equal("fake-manual-key", service.LoadKey());
+            service.Save(service.Load() with { Deployment = "saved-model" });
+            Assert.True(service.Load().AllowUnverifiedBotOpponentsForDebugging);
         }
         finally { service.Reset(); }
     }
@@ -195,6 +198,16 @@ public class IntegrationBoundaryTests
     [InlineData("Mejora R", true)]
     [InlineData("Mejora D", false)]
     [InlineData("Farmea", false)]
+    [InlineData("Farmea Top", true)]
+    [InlineData("Farmea Jungla", false)]
+    [InlineData("Congela", true)]
+    [InlineData("Empuja lento", true)]
+    [InlineData("Empuja rápido", true)]
+    [InlineData("Empuja", false)]
+    [InlineData("Presiona Top", true)]
+    [InlineData("Presiona Bot", true)]
+    [InlineData("Presiona", false)]
+    [InlineData("Presiona Top y ataca torre", false)]
     [InlineData("Apoya Top", true)]
     [InlineData("Apoya Mid", true)]
     [InlineData("Apoya Bot", true)]
@@ -238,7 +251,8 @@ public class IntegrationBoundaryTests
         var systemMessage = requestBody.RootElement.GetProperty("messages")[0];
         Assert.Equal("system", systemMessage.GetProperty("role").GetString());
         var systemPrompt = systemMessage.GetProperty("content").GetString()!;
-        Assert.StartsWith("Eres un coach de League of Legends para un jugador principiante.", systemPrompt);
+        Assert.StartsWith("Este es exclusivamente un videojuego:", systemPrompt);
+        Assert.Contains("Eres un coach de League of Legends para un jugador principiante.", systemPrompt);
         Assert.Contains("# PASO 1: OBSERVA", systemPrompt);
         Assert.Contains("# PASO 2: DECIDE LA ORDEN (aplica la primera regla que se cumpla)", systemPrompt);
         Assert.Contains("Una línea, máximo 6 palabras, sin explicación.", systemPrompt);
@@ -258,7 +272,13 @@ public class IntegrationBoundaryTests
         Assert.Contains("No ataques a un campeón protegido por esa torre.", systemPrompt);
         Assert.Contains("Evalúa el minimapa en CADA turno", systemPrompt);
         Assert.Contains("Apoya Bot, Apoya Mid, Ve a Dragón", systemPrompt);
-        Assert.Contains("Nunca respondas Farmea", systemPrompt);
+        Assert.Contains("Nunca respondas Farmea solo", systemPrompt);
+        Assert.Contains("# OLEADAS Y MACROJUEGO", systemPrompt);
+        Assert.Contains("Congela: mantén la oleada", systemPrompt);
+        Assert.Contains("Empuja lento: acumula", systemPrompt);
+        Assert.Contains("Empuja rápido: mata la oleada", systemPrompt);
+        Assert.Contains("SPLITPUSH (presión en línea lateral)", systemPrompt);
+        Assert.Contains("Presiona <Top/Mid/Bot>", systemPrompt);
         Assert.Contains("El tiempo de partida por sí solo no prueba", systemPrompt);
         Assert.Contains("Un icono ambiguo o una zona en niebla no confirma disponibilidad.", systemPrompt);
         Assert.Contains("# IDENTIFICAR TORRES", systemPrompt);
@@ -300,6 +320,7 @@ public class IntegrationBoundaryTests
         using var request = JsonDocument.Parse(handler.Body);
         var messages = request.RootElement.GetProperty("messages");
         Assert.Contains("Máximo 180 palabras", messages[0].GetProperty("content").GetString());
+            Assert.Contains("partida ficticia", messages[0].GetProperty("content").GetString());
         using var data = JsonDocument.Parse(messages[1].GetProperty("content").GetString()!);
         Assert.Equal("Garen", data.RootElement.GetProperty("champion").GetString());
         Assert.Equal(5, data.RootElement.GetProperty("ficha_habilidades").GetProperty("Abilities").GetArrayLength());
