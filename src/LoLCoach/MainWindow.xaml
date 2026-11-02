@@ -241,7 +241,7 @@
             </TabItem>
             <TabItem Header="Captura">
               <DockPanel Margin="4,10,4,4">
-                <TextBlock DockPanel.Dock="Top" Text="{Binding PayloadLabel, StringFormat=Imagen enviada: {0}}" Style="{StaticResource Label}"/>
+                <TextBlock DockPanel.Dock="Top" Text="{Binding PayloadLabel, StringFormat=Imágenes actuales (sin historial): {0}}" Style="{StaticResource Label}"/>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding LatencyLabel, StringFormat=Frase completa: {0}}" Style="{StaticResource Label}" Margin="0,4,0,8"/>
                 <Border BorderBrush="{StaticResource Gold4Brush}" BorderThickness="1" Background="{StaticResource VoidBrush}" Padding="2">
                   <Grid>
@@ -249,6 +249,20 @@
                       <TextBlock.Visibility><Binding Path="Scene" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
                     </TextBlock>
                     <Image Source="{Binding Scene}" Stretch="Uniform" AutomationProperties.Name="Captura de pantalla enviada"/>
+                  </Grid>
+                </Border>
+              </DockPanel>
+            </TabItem>
+            <TabItem Header="Minimapa">
+              <DockPanel Margin="4,10,4,4">
+                <TextBlock DockPanel.Dock="Top" Text="Recorte enviado sin pérdida, a resolución nativa."
+                           Style="{StaticResource Label}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                <Border BorderBrush="{StaticResource Gold4Brush}" BorderThickness="1" Background="{StaticResource VoidBrush}" Padding="2">
+                  <Grid>
+                    <TextBlock Text="Sin minimapa enviado" Style="{StaticResource Label}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                      <TextBlock.Visibility><Binding Path="MinimapScene" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
+                    </TextBlock>
+                    <Image Source="{Binding MinimapScene}" Stretch="Uniform" AutomationProperties.Name="Recorte del minimapa enviado"/>
                   </Grid>
                 </Border>
               </DockPanel>

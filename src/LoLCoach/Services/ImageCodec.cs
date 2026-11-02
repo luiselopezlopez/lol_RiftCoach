@@ -11,9 +11,15 @@ public static class ImageCodec
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var stream = new MemoryStream(); encoder.Save(stream); return stream.ToArray();
     }
-    public static BitmapSource Decode(byte[] jpeg)
+    public static byte[] EncodePng(BitmapSource bitmap)
     {
-        using var stream = new MemoryStream(jpeg);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = new MemoryStream(); encoder.Save(stream); return stream.ToArray();
+    }
+    public static BitmapSource Decode(byte[] imageBytes)
+    {
+        using var stream = new MemoryStream(imageBytes);
         var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
         var bitmap = decoder.Frames[0]; bitmap.Freeze(); return bitmap;
     }

@@ -13,6 +13,8 @@ public partial class MainWindow : Window
     private readonly DashboardViewModel viewModel;
     private readonly Dictionary<string, FloatingPanel> panels;
     private readonly Dictionary<string, PanelLayout> defaultLayout;
+    private readonly HashSet<string> automaticLayout = [];
+    private bool layoutLoaded;
     private bool closing;
     private bool shutdownStarted;
     private readonly bool startAutomatically;
@@ -32,6 +34,8 @@ public partial class MainWindow : Window
         };
         defaultLayout = panels.Select((entry, index) => (entry.Key, Layout: entry.Value.GetLayout() with { ZIndex = index + 1 }))
             .ToDictionary(entry => entry.Key, entry => entry.Layout);
+        foreach (var (id, panel) in panels)
+            panel.LayoutEdited += (_, _) => automaticLayout.Remove(id);
         viewModel.ProfileSaved += (_, _) => { TrainingPanel.IsOpen = true; TrainingPanel.BringToFront(); };
         Loaded += OnLoaded;
     }
@@ -44,18 +48,49 @@ public partial class MainWindow : Window
     private async void OnLoaded(object sender, RoutedEventArgs args)
     {
         ApplyLayout(viewModel.LoadPanelLayout());
+        layoutLoaded = true;
         if (startAutomatically) await viewModel.InitializeAsync();
     }
 
     private void ApplyLayout(IReadOnlyDictionary<string, PanelLayout> saved)
     {
+        var defaults = CreateDefaultLayout();
         foreach (var (id, panel) in panels)
         {
             if (saved.TryGetValue(id, out var layout)) { panel.ApplyLayout(layout); continue; }
-            var fallback = defaultLayout[id];
-            if (id == "recommendation") fallback = fallback with { IsOpen = viewModel.SelectedChampion is null };
-            panel.ApplyLayout(fallback);
+            automaticLayout.Add(id);
+            panel.ApplyLayout(defaults[id]);
         }
+    }
+
+    private Dictionary<string, PanelLayout> CreateDefaultLayout()
+    {
+        var minimumWidth = ChampionPanel.MinWidth + TrainingPanel.MinWidth + SessionPanel.MinWidth;
+        var gap = Math.Clamp((Workspace.ActualWidth - minimumWidth) / 4, 0, 8);
+        var width = Math.Max(minimumWidth + gap * 4, Workspace.ActualWidth);
+        var height = Math.Max(TrainingPanel.MinHeight + ChampionsPanel.MinHeight + gap * 3, Workspace.ActualHeight);
+        var contentWidth = width - gap * 2;
+        var contentHeight = height - gap * 3;
+        var leftWidth = Math.Max(ChampionPanel.MinWidth, contentWidth * 0.175);
+        var rightWidth = Math.Max(SessionPanel.MinWidth, contentWidth * 0.16);
+        var bottomHeight = Math.Max(ChampionsPanel.MinHeight, contentHeight * 0.27);
+        var topHeight = contentHeight - bottomHeight;
+        var layout = new Dictionary<string, PanelLayout>(defaultLayout)
+        {
+            ["champion"] = new(gap, gap, leftWidth, topHeight, true, 1),
+            ["training"] = new(leftWidth + gap * 2, gap, contentWidth - leftWidth - rightWidth - gap * 2, topHeight, true, 2),
+            ["session"] = new(width - gap - rightWidth, gap, rightWidth, topHeight, true, 3),
+            ["champions"] = new(gap, topHeight + gap * 2, contentWidth, bottomHeight, true, 4)
+        };
+        var recommendation = defaultLayout["recommendation"];
+        var recommendationWidth = Math.Min(recommendation.Width, contentWidth);
+        var recommendationHeight = Math.Min(recommendation.Height, height - gap * 2);
+        layout["recommendation"] = recommendation with
+        {
+            Left = (width - recommendationWidth) / 2, Top = (height - recommendationHeight) / 2,
+            Width = recommendationWidth, Height = recommendationHeight, IsOpen = viewModel.SelectedChampion is null
+        };
+        return layout;
     }
 
     public IReadOnlyDictionary<string, PanelLayout> CaptureLayout()
@@ -82,11 +117,19 @@ public partial class MainWindow : Window
 
     private void OnResetLayout(object sender, RoutedEventArgs args)
     {
-        foreach (var (id, panel) in panels) panel.ApplyLayout(defaultLayout[id] with { IsOpen = true });
+        automaticLayout.Clear();
+        ApplyLayout(new Dictionary<string, PanelLayout>());
     }
 
     private void OnWorkspaceSizeChanged(object sender, SizeChangedEventArgs args)
     {
+        if (!layoutLoaded) return;
+        var defaults = CreateDefaultLayout();
+        foreach (var id in automaticLayout)
+        {
+            var panel = panels[id];
+            panel.ApplyLayout(defaults[id] with { IsOpen = panel.IsOpen, ZIndex = System.Windows.Controls.Panel.GetZIndex(panel) });
+        }
         foreach (var panel in panels.Values.Where(panel => panel.IsOpen)) panel.KeepInside();
     }
 

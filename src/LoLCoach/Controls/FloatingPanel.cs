@@ -26,6 +26,8 @@ public class FloatingPanel : ContentControl
     public double Left => Canvas.GetLeft(this) is var left && double.IsFinite(left) ? left : 0;
     public double Top => Canvas.GetTop(this) is var top && double.IsFinite(top) ? top : 0;
 
+    public event EventHandler? LayoutEdited;
+
     public FloatingPanel()
     {
         MinWidth = 220; MinHeight = 140;
@@ -92,6 +94,7 @@ public class FloatingPanel : ContentControl
         var edge = thumb.Name == "PART_TitleBar" ? "Move" : thumb.Tag as string;
         if (edge is null) return;
         args.Handled = true;
+        LayoutEdited?.Invoke(this, EventArgs.Empty);
         if (edge == "Move") { MoveTo(Left + args.HorizontalChange, Top + args.VerticalChange); return; }
         var width = Size(Width, ActualWidth);
         var height = Size(Height, ActualHeight);

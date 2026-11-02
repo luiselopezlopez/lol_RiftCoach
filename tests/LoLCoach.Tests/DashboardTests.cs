@@ -97,6 +97,9 @@ public class DashboardTests
                 Assert.Equal(Color.FromRgb(70, 195, 123), Assert.IsType<SolidColorBrush>(healthValue.Foreground).Color);
                 Assert.Equal("#46C37B", viewModel.ApiFields.Single(field => field.Name == "Vida").HighlightColor);
                 Assert.NotNull(viewModel.Scene);
+                Assert.NotNull(viewModel.MinimapScene);
+                Assert.Equal(96, Assert.IsAssignableFrom<BitmapSource>(viewModel.MinimapScene).PixelWidth);
+                Assert.Contains(window.SessionTabs.Items.OfType<TabItem>(), tab => Equals(tab.Header, "Minimapa"));
                 Assert.Empty(speech.Spoken);
                 model.Finish.SetResult();
                 await viewModel.StartCommand.ExecutionTask!.WaitAsync(TimeSpan.FromSeconds(3));
@@ -298,13 +301,34 @@ public class DashboardTests
         {
             await RenderAsync();
             Assert.Equal(WindowState.Maximized, window.WindowState);
+            FindLogical<MenuItem>(window.MainMenu).Single(item => Equals(item.Header, "Restablecer disposición"))
+                .RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            await RenderAsync();
+            VerifyDefaultGeometry();
+            window.WindowState = WindowState.Normal;
+            window.Width = 760;
+            window.Height = 640;
+            await RenderAsync();
+            VerifyDefaultGeometry();
+            window.Width = 1120;
+            window.Height = 840;
+            await RenderAsync();
+            VerifyDefaultGeometry();
+            window.WindowState = WindowState.Maximized;
+            await RenderAsync();
+            VerifyDefaultGeometry();
+            SaveScreenshot(window, "default-layout-maximized");
             var panel = window.TrainingPanel;
+            var initial = panel.GetLayout();
             var thumbs = FindAll<Thumb>(panel).ToList();
             thumbs.Single(thumb => thumb.Name == "PART_TitleBar").RaiseEvent(new DragDeltaEventArgs(40, 30));
             thumbs.Single(thumb => Equals(thumb.Tag, "BottomRight")).RaiseEvent(new DragDeltaEventArgs(50, 40));
             thumbs.Single(thumb => Equals(thumb.Tag, "Left")).RaiseEvent(new DragDeltaEventArgs(-20, 0));
             await RenderAsync();
-            Assert.Equal(new PanelLayout(366, 38, 510, 440, true), panel.GetLayout() with { ZIndex = 0 });
+            Assert.Equal(initial.Left + 20, panel.Left, 5);
+            Assert.Equal(initial.Top + 30, panel.Top, 5);
+            Assert.Equal(initial.Width + 70, panel.Width, 5);
+            Assert.Equal(initial.Height + 40, panel.Height, 5);
             thumbs.Single(thumb => thumb.Name == "PART_TitleBar").RaiseEvent(new DragDeltaEventArgs(-5000, -5000));
             Assert.True(panel.Left + panel.Width >= 80); Assert.Equal(0, panel.Top);
             var expected = panel.GetLayout();
@@ -333,6 +357,30 @@ public class DashboardTests
         {
             if (!closed) window.Close();
             restored?.Close(); await RenderAsync();
+        }
+
+        void VerifyDefaultGeometry()
+        {
+            var champion = window.ChampionPanel.GetLayout();
+            var training = window.TrainingPanel.GetLayout();
+            var session = window.SessionPanel.GetLayout();
+            var champions = window.ChampionsPanel.GetLayout();
+            var gap = Math.Clamp((window.Workspace.ActualWidth - window.ChampionPanel.MinWidth
+                - window.TrainingPanel.MinWidth - window.SessionPanel.MinWidth) / 4, 0, 8);
+            Assert.Equal(gap, champion.Left);
+            Assert.Equal(gap, champion.Top);
+            Assert.Equal(champion.Top, training.Top);
+            Assert.Equal(champion.Top, session.Top);
+            Assert.Equal(champion.Height, training.Height);
+            Assert.Equal(champion.Height, session.Height);
+            Assert.Equal(champion.Left + champion.Width + gap, training.Left, 5);
+            Assert.Equal(training.Left + training.Width + gap, session.Left, 5);
+            Assert.Equal(window.Workspace.ActualWidth - gap, session.Left + session.Width, 5);
+            Assert.Equal(champion.Top + champion.Height + gap, champions.Top, 5);
+            Assert.Equal(gap, champions.Left);
+            Assert.Equal(window.Workspace.ActualWidth - gap * 2, champions.Width, 5);
+            Assert.Equal(window.Workspace.ActualHeight - gap, champions.Top + champions.Height, 5);
+            Assert.True(training.Width >= window.TrainingPanel.MinWidth);
         }
     }
 
@@ -403,7 +451,10 @@ public class DashboardTests
                     new("Lux", "Aliado", false, 4, "MIDDLE", 1, 0, 2, 35, 2, false, 0, []),
                     new("Ashe", "Rival", false, 4, "BOTTOM", 0, 2, 1, 25, 0, true, 12, [new("Botas", 1)])]
             };
-            return Task.FromResult(TestObservations.Create(snapshot, TimeProvider.System.GetTimestamp(), ImageCodec.Encode(image)));
+            return Task.FromResult(TestObservations.Create(snapshot, TimeProvider.System.GetTimestamp(), ImageCodec.Encode(image)) with
+            {
+                MinimapPng = ImageCodec.EncodePng(new CroppedBitmap(image, new Int32Rect(304, 144, 96, 96)))
+            });
         }
     }
     private static Task RunStaAsync(Func<Task> action)

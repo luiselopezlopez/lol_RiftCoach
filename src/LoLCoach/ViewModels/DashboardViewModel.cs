@@ -153,6 +153,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string miniGuide = "";
     [ObservableProperty] private string gamePhase = "Sin fase disponible";
     [ObservableProperty] private string rosterStatus = "Esperando datos de jugadores";
+    [ObservableProperty] private ImageSource? minimapScene;
 
     partial void OnQuestionIndexChanged(int value)
     {
@@ -263,7 +264,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     {
         if (!CanStart()) return;
         IsBusy = true; AutomaticStartEnabled = true;
-        Requests = 0; ClearAdvice(); Scene = null;
+        Requests = 0; ClearAdvice(); Scene = null; MinimapScene = null;
         ApiStatus = "Sin consultar"; ApiLastUpdate = "Sin datos"; ApiFields.Clear(); Players.Clear();
         OwnChampion = "Tu campeón"; OwnVitals = "Sin datos de partida"; RosterStatus = "Esperando datos de jugadores";
         OwnLevel = "-"; OwnHealth = "- / -"; OwnGold = "-"; OwnHealthColor = "#A09B8C"; OwnHealthRatio = 0;
@@ -288,7 +289,9 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
                 Requests = Math.Max(Requests, update.Requests);
                 if (update.Observation is { } observation)
                 {
-                    Scene = ImageCodec.Decode(observation.Jpeg); PayloadLabel = $"{observation.Jpeg.Length / 1024.0:0.0} KB";
+                    Scene = ImageCodec.Decode(observation.Jpeg);
+                    MinimapScene = observation.MinimapPng is { Length: > 0 } minimap ? ImageCodec.Decode(minimap) : null;
+                    PayloadLabel = $"{(observation.Jpeg.Length + (long)(observation.MinimapPng?.Length ?? 0)) / 1024.0:0.0} KB";
                     ApplySnapshot(observation.State, observation.Practice?.Champion);
                 }
                 if (update.ClearAdvice) ClearAdvice();
@@ -320,7 +323,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception) when (IsExpected(exception))
         {
-            generation++; ClearAdvice(); Scene = null; Status = DescribeError(exception);
+            generation++; ClearAdvice(); Scene = null; MinimapScene = null; Status = DescribeError(exception);
             if (ModelStatus != "Disponible") ModelStatus = Status;
             ApiStatus = "Sin conexión activa";
         }
@@ -413,7 +416,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [RelayCommand] private void ClearDiagnostics() { LolDiagnostics.Clear(); ModelDiagnostics.Clear(); }
     [RelayCommand] private void Stop()
     {
-        AutomaticStartEnabled = false; active?.Cancel(); generation++; ClearAdvice(); Scene = null;
+        AutomaticStartEnabled = false; active?.Cancel(); generation++; ClearAdvice(); Scene = null; MinimapScene = null;
         Status = "Detenido"; ApiStatus = "Sin conexión activa";
     }
     private void ClearAdvice(bool cancelSpeech = true)

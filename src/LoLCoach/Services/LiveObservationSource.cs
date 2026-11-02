@@ -1,5 +1,6 @@
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows;
 using LoLCoach.Models;
 
 namespace LoLCoach.Services;
@@ -28,6 +29,12 @@ public sealed class LiveObservationSource(IPracticeFrameSource capture, IPractic
             throw new PracticeUnavailableException("Captura y estado no están sincronizados; no se enviará la observación.");
         var bitmap = frame.Image;
         if (!HasVisibleContent(bitmap)) throw new PracticeUnavailableException("La captura está vacía o negra; comprueba el modo de ventana.");
+        // Include HUD margins and larger minimap scales without reducing native detail.
+        var minimapSize = Math.Min(bitmap.PixelWidth, (int)Math.Ceiling(bitmap.PixelHeight * 0.4));
+        var minimap = new CroppedBitmap(bitmap, new Int32Rect(bitmap.PixelWidth - minimapSize,
+            bitmap.PixelHeight - minimapSize, minimapSize, minimapSize));
+        minimap.Freeze();
+        var minimapPng = ImageCodec.EncodePng(minimap);
         if (bitmap.PixelWidth > 1280)
         {
             var scale = 1280.0 / bitmap.PixelWidth;
@@ -35,7 +42,7 @@ public sealed class LiveObservationSource(IPracticeFrameSource capture, IPractic
             bitmap.Freeze();
         }
         var observation = new Observation(ImageCodec.Encode(bitmap), state.Snapshot, frame.CapturedAt, ObservationKind.BotPractice)
-        { Practice = state.Verification };
+        { Practice = state.Verification, MinimapPng = minimapPng };
         ProductPolicy.EnsureAllowed(observation);
         return observation;
     }

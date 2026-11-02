@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using LoLCoach.Models;
@@ -38,6 +39,45 @@ public class LiveObservationTests
         Assert.Equal(400, ImageCodec.Decode(observation.Jpeg).PixelWidth);
         Assert.Equal(1, reader.Calls);
         Assert.Equal(1, capture.Calls);
+        Assert.NotEmpty(observation.MinimapPng!);
+        Assert.Equal(96, ImageCodec.Decode(observation.MinimapPng!).PixelWidth);
+    }
+
+    [Theory]
+    [InlineData(1280, 720)]
+    [InlineData(1920, 1080)]
+    [InlineData(3840, 2160)]
+    public async Task MinimapKeepsOriginalBottomRightPixelsBeforeOverviewDownscaling(int width, int height)
+    {
+        var clock = new FakeTimeProvider();
+        var pixels = new byte[width * height * 4];
+        for (var y = 0; y < height; y++)
+            for (var x = 0; x < width; x++)
+            {
+                var offset = (y * width + x) * 4;
+                pixels[offset] = (byte)(x % 256);
+                pixels[offset + 1] = (byte)(y % 256);
+                pixels[offset + 2] = (byte)((x + y) % 256);
+                pixels[offset + 3] = 255;
+            }
+        var original = WindowCaptureService.CreateFrame(width, height, pixels, width * 4);
+        var frame = new CapturedWindowFrame(original, clock.GetTimestamp());
+        var observation = await new LiveObservationSource(new FrameSource(frame), new StateReader(State(clock)), clock)
+            .CaptureAsync(default);
+
+        var size = (int)Math.Ceiling(height * 0.4);
+        var png = Assert.IsType<byte[]>(observation.MinimapPng);
+        Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, png.Take(8));
+        var decoded = ImageCodec.Decode(png);
+        Assert.Equal(size, decoded.PixelWidth);
+        Assert.Equal(size, decoded.PixelHeight);
+        var expected = new byte[size * size * 4];
+        original.CopyPixels(new Int32Rect(width - size, height - size, size, size), expected, size * 4, 0);
+        var actual = new byte[expected.Length];
+        new FormatConvertedBitmap(decoded, PixelFormats.Bgra32, null, 0).CopyPixels(actual, size * 4, 0);
+        Assert.Equal(expected, actual);
+        Assert.Equal(Math.Min(width, 1280), ImageCodec.Decode(observation.Jpeg).PixelWidth);
+        Assert.Equal(frame.CapturedAt, observation.CapturedAt);
     }
 
     [Fact]

@@ -24,6 +24,7 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
     private string? plannedChampion;
     private string? plannedRole;
     private ChampionAbilityReference? championAbilities;
+    private readonly Queue<(byte[] Png, long CapturedAt, double? GameTime)> minimapHistory = new();
 
     public FoundryCoachingService(AppSettings settings, string key, HttpClient? httpClient = null,
         Action<ApiDiagnostic>? diagnostics = null,
@@ -58,6 +59,7 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
     {
         ProductPolicy.EnsureAllowed(observation);
         var champion = observation.Practice?.Champion ?? profile.Champion;
+        if (plannedChampion != champion) minimapHistory.Clear();
         var plan = ChampionProgressionCatalog.Default.GetPlan(champion, profile.Role, observation.State,
             plannedChampion == champion ? plannedRole : null);
         plannedChampion = champion; plannedRole = plan?.Role;
@@ -81,14 +83,15 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
             new SystemChatMessage("""
                      Este es exclusivamente un videojuego: analiza la partida ficticia de League of Legends y da coaching estratégico sobre sus mecánicas. Campeones, órdenes, objetivos y estados de partida se refieren solo al juego, nunca a personas ni situaciones reales. Responde en español.
 
-                     Eres un coach de League of Legends para un jugador principiante. En cada turno recibes una captura de la ventana del juego y un JSON con el estado de la partida. Respondes en español.
+                     Eres un coach de League of Legends para un jugador principiante. En cada turno recibes una captura de la ventana del juego y un JSON con el estado de la partida. Puede acompañarlos una segunda imagen etiquetada como minimapa: es un recorte de la esquina inferior derecha del MISMO fotograma, en PNG sin pérdida y a resolución nativa, no otra observación temporal. También puedes recibir hasta dos minimapas ANTERIORES, etiquetados con su antigüedad y tiempo de partida. Respondes en español.
+                     Si recibes el recorte del minimapa, úsalo como referencia de detalle para la estrategia: posición propia, aliados y enemigos visibles, presión de oleadas, defensa de torres, rutas, apoyos y objetivos. Contrástalo con la vista completa y el JSON antes de elegir la orden. El recorte puede incluir parte del HUD; no confundas sus elementos con iconos del mapa. Si el mapa está tapado o es ilegible, considera esos datos desconocidos; distingue siempre observación actual de predicción temporal.
 
                      # PASO 1: OBSERVA
                      Antes de decidir, determina a partir de la imagen:
                      - tienda_abierta: true si se ve la ventana de la tienda (panel grande con objetos, precios y oro).
                      - en_base: true si tu campeón está en la plataforma de reaparición de tu equipo (fuente).
                      - muerto: usa el campo muerto del JSON (pantalla en gris = muerto).
-                     - minimapa: localiza tu icono, aliados y enemigos visibles, oleadas, torres, combates y objetivos o campamentos identificables. Si los iconos no se distinguen, marca la información como desconocida; no deduzcas posiciones ocultas.
+                     - minimapa: localiza tu icono, aliados y enemigos visibles, oleadas, torres, combates y objetivos o campamentos identificables. Si los iconos no se distinguen, marca la información como desconocida. Usa los minimapas anteriores para estimar amenazas ocultas según PREDICCIÓN TEMPORAL, sin presentarlas como posiciones confirmadas.
                      - torres: clasifica cada torre visible como aliada, enemiga o desconocida ANTES de usarla en una orden (ver IDENTIFICAR TORRES).
 
                      # IDENTIFICAR TORRES
@@ -128,7 +131,7 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
                      - Prioriza órdenes concretas: Ataca Torre, Aléjate de Torre, Ataca Garen con E+Q, Huye de Garen, Ataca Cañón, Ve a Torre aliada.
                      - Todo ataque a un campeón debe indicar el combo, aunque sea una sola tecla, o clic derecho si solo procede un ataque básico. No devuelvas Ataca <campeón> sin indicar cómo atacar.
                      - <combo>: Q, W, E, R, D, F y teclas de objeto 1-7 equipadas, unidas por + en orden de ejecución y sin espacios (ej: E+Q, 3+Q+R). No confundas ORDEN_HABILIDADES, que sirve para subir niveles, con un combo de combate; decide el combo según las habilidades aprendidas y la situación visible.
-                     - Usa el nombre del campeón, no la palabra genérica Campeón ni nombres de jugadores. Nombra solo objetivos y amenazas visibles; no inventes alcance, vida o identidad.
+                     - Usa el nombre del campeón, no la palabra genérica Campeón ni nombres de jugadores. Para atacar, nombra solo objetivos visibles; para huir puedes usar una amenaza probable identificada en el historial visual. No inventes alcance, vida o identidad.
                      - Evita Avanza, Retrocede o Huye sin objetivo cuando puedas indicar con evidencia qué atacar, de qué alejarte o a dónde ir. Si no hay evidencia, Espera.
                      - Usa <tecla>: Q, W, E, R, D, F y teclas de objeto 1-7 que estén en objetos_activos.
                      - <sitio> y <monstruo>: Top, Mid, Bot, Dragón, Barón, Heraldo, Torre aliada, Azul, Rojo, Lobos, Raptores, Krugs, Gromp o Escurridizo, solo cuando se puedan identificar. Evita Ve a Jungla sin indicar campamento u objetivo.
@@ -182,6 +185,12 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
                      La API enviada no incluye posiciones enemigas, estado completo de campamentos ni temporizadores fiables de reaparición. El tiempo de partida por sí solo no prueba que Dragón, Barón, Heraldo o un campamento estén vivos. Un icono ambiguo o una zona en niebla no confirma disponibilidad.
                      Antes de indicar Apoya o Ve a un objetivo, comprueba distancia desde tu icono, urgencia, estado de tu línea, vida y recurso, aliados presentes y ruta visible. Si no puedes justificar que llegarás a tiempo y que la rotación es útil, conserva una acción local segura.
 
+                     # PREDICCIÓN TEMPORAL
+                     Compara los minimapas anteriores con el actual para predecir enemigos ocultos y posibles emboscadas: última posición visible, dirección observada, tiempo transcurrido, salidas de visión y rutas plausibles hacia tu línea u objetivos.
+                     Distingue internamente: confirmado (visible ahora), probable (apoyado por el historial) y desconocido (sin evidencia suficiente). Una ausencia aislada no demuestra una emboscada. No confundas un recorte histórico con la posición actual ni afirmes coordenadas exactas, trayectorias únicas, enfriamientos o campamentos disponibles en niebla.
+                     Usa las amenazas probables para decidir con prudencia: retroceder, evitar una ruta, buscar visión o no iniciar una rotación. Una emboscada probable sustentada por el historial puede activar la retirada de la regla 6 aunque el enemigo ya no sea visible. No ordenes atacar a un enemigo oculto.
+                     Si explicas la predicción en el consejo, usa expresiones de incertidumbre como «posible emboscada» o «podría venir por el río». Cuanto más antigua o ambigua sea la evidencia, menor confianza. Si no recibes historial visual, no inventes movimientos previos.
+
                      # CONTINUIDAD
                      Los mensajes previos del asistente son tus órdenes anteriores. No cambies BUILD_OBJETIVO ni ORDEN_HABILIDADES.
 
@@ -207,13 +216,31 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
                 "Usa ficha_habilidades, cuando esté disponible, para adaptar alcance, control, resistencia y combos a las herramientas reales del campeón. " +
                 "campeones_enemigos contiene solo campeones y datos conocidos del marcador: compara nivel, objetos y ventaja, " +
                 "y considera alcance, movilidad y control de masas para elegir intercambio, retirada o combo del campeón propio. " +
-                "No supongas posiciones, vida, habilidades aprendidas o enfriamientos enemigos que no aparecen en la imagen. " +
+                "No supongas vida, habilidades aprendidas o enfriamientos enemigos que no aparecen en la imagen. " +
+                "Las posiciones ocultas solo pueden estimarse como hipótesis basadas en el historial visual, nunca como hechos confirmados. " +
                 "Un rival muerto no es amenaza inmediata, pero no inventes cuándo reaparecerá. Si no hay datos de rivales, no inventes emparejamientos.")
         ];
         foreach (var previousAdvice in recentAdvice.TakeLast(CoachingSession.MaxHistory))
             messages.Add(new AssistantChatMessage(previousAdvice));
-        messages.Add(new UserChatMessage(ChatMessageContentPart.CreateTextPart(context),
-            ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(observation.Jpeg), "image/jpeg", ChatImageDetailLevel.High)));
+        List<ChatMessageContentPart> content =
+        [
+            ChatMessageContentPart.CreateTextPart(context),
+            ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(observation.Jpeg), "image/jpeg", ChatImageDetailLevel.High)
+        ];
+        if (observation.MinimapPng is { Length: > 0 } minimap)
+        {
+            content.Add(ChatMessageContentPart.CreateTextPart("Minimapa: recorte inferior derecho del mismo fotograma, a resolución nativa."));
+            content.Add(ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(minimap), "image/png", ChatImageDetailLevel.High));
+            foreach (var previous in minimapHistory)
+            {
+                var age = TimeProvider.System.GetElapsedTime(previous.CapturedAt, observation.CapturedAt).TotalSeconds;
+                if (age <= 0 || age > 30) continue;
+                content.Add(ChatMessageContentPart.CreateTextPart("Minimapa ANTERIOR (no es la posición actual): " +
+                    JsonSerializer.Serialize(new { antiguedad_segundos = age, tiempo_partida = previous.GameTime })));
+                content.Add(ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(previous.Png), "image/png", ChatImageDetailLevel.High));
+            }
+        }
+        messages.Add(new UserChatMessage(content));
         var options = new ChatCompletionOptions { MaxOutputTokenCount = 2048 };
         ChatFinishReason? finish = null;
         await foreach (var update in client.CompleteChatStreamingAsync(messages, options, cancellationToken))
@@ -225,6 +252,11 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
         }
         if (finish != ChatFinishReason.Stop)
             throw new ModelOutputException(finish);
+        if (observation.MinimapPng is { Length: > 0 } completedMinimap)
+        {
+            minimapHistory.Enqueue((completedMinimap, observation.CapturedAt, observation.State.GameTime));
+            while (minimapHistory.Count > 2) minimapHistory.Dequeue();
+        }
     }
     public void Dispose() => httpClient.Dispose();
 

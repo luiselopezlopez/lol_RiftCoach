@@ -201,6 +201,7 @@ public enum ObservationKind { LiveGame, BotPractice }
 public sealed record Observation(byte[] Jpeg, GameSnapshot State, long CapturedAt, ObservationKind Kind)
 {
     public VerifiedBotPractice? Practice { get; init; }
+    public byte[]? MinimapPng { get; init; }
 }
 
 public sealed class VerifiedBotPractice

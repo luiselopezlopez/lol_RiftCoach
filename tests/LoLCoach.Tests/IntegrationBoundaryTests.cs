@@ -238,7 +238,7 @@ public class IntegrationBoundaryTests
         var handler = new StreamingHandler();
         using var service = new FoundryCoachingService(new(), "fake-key", new HttpClient(handler));
         var observation = TestObservations.Create(new(120, 3, 400, 900, 500), jpeg: [1, 2, 3]);
-        observation = observation with { State = observation.State with
+        observation = observation with { MinimapPng = [4, 5, 6], State = observation.State with
         {
             Roster = [new("Ashe", "Rival", false, 5, "BOTTOM", 2, 1, 3, 30, 0, false, 0, [new("Botas", 1)])]
         } };
@@ -271,6 +271,8 @@ public class IntegrationBoundaryTests
         Assert.Contains("súbditos aliados recibiendo sus ataques", systemPrompt);
         Assert.Contains("No ataques a un campeón protegido por esa torre.", systemPrompt);
         Assert.Contains("Evalúa el minimapa en CADA turno", systemPrompt);
+        Assert.Contains("úsalo como referencia de detalle para la estrategia", systemPrompt);
+        Assert.Contains("del MISMO fotograma", systemPrompt);
         Assert.Contains("Apoya Bot, Apoya Mid, Ve a Dragón", systemPrompt);
         Assert.Contains("Nunca respondas Farmea solo", systemPrompt);
         Assert.Contains("# OLEADAS Y MACROJUEGO", systemPrompt);
@@ -288,6 +290,12 @@ public class IntegrationBoundaryTests
         Assert.Equal(2048, requestBody.RootElement.GetProperty("max_completion_tokens").GetInt32());
         var image = requestBody.RootElement.GetProperty("messages")[1].GetProperty("content")[1].GetProperty("image_url");
         Assert.Equal("high", image.GetProperty("detail").GetString());
+        var content = requestBody.RootElement.GetProperty("messages")[1].GetProperty("content");
+        Assert.Equal(4, content.GetArrayLength());
+        Assert.Contains("Minimapa:", content[2].GetProperty("text").GetString());
+        var minimap = content[3].GetProperty("image_url");
+        Assert.Equal("high", minimap.GetProperty("detail").GetString());
+        Assert.Equal("data:image/png;base64,BAUG", minimap.GetProperty("url").GetString());
         Assert.Contains("/openai/v1/chat/completions", handler.Url);
         using var context = JsonDocument.Parse(requestBody.RootElement.GetProperty("messages")[1].GetProperty("content")[0].GetProperty("text").GetString()!);
         Assert.Equal("Grebas de berserker", context.RootElement.GetProperty("BUILD_OBJETIVO")[0].GetProperty("Nombre").GetString());
@@ -295,6 +303,63 @@ public class IntegrationBoundaryTests
         Assert.Equal("early", context.RootElement.GetProperty("fase_partida").GetProperty("Phase").GetString());
         Assert.Equal("Ashe", context.RootElement.GetProperty("campeones_enemigos")[0].GetProperty("Champion").GetString());
         Assert.Equal(5, context.RootElement.GetProperty("campeones_enemigos")[0].GetProperty("Level").GetInt32());
+    }
+
+    [Fact]
+    public async Task MinimapHistoryIsBoundedAndLabelsPastFramesForAmbushPrediction()
+    {
+        var handler = new StreamingHandler();
+        using var service = new FoundryCoachingService(new(), "fake-key", new HttpClient(handler));
+        var frequency = TimeProvider.System.TimestampFrequency;
+        var observation = TestObservations.Create(new(120, 3, 400, 900, 500), jpeg: [1, 2, 3]);
+        for (var turn = 0; turn < 4; turn++)
+        {
+            var current = observation with
+            {
+                CapturedAt = (100 + turn * 5) * frequency,
+                State = observation.State with { GameTime = 120 + turn * 5 },
+                MinimapPng = [(byte)turn, 5, 6]
+            };
+            await foreach (var part in service.StreamAsync(current, new(PlayerRole.Top, "Garen", []), [], default)) { }
+        }
+        using var request = JsonDocument.Parse(handler.Body);
+        var messages = request.RootElement.GetProperty("messages");
+        var content = messages[1].GetProperty("content");
+        Assert.Equal(8, content.GetArrayLength());
+        Assert.Equal("data:image/png;base64,AwUG", content[3].GetProperty("image_url").GetProperty("url").GetString());
+        Assert.Equal("data:image/png;base64,AQUG", content[5].GetProperty("image_url").GetProperty("url").GetString());
+        Assert.Equal("data:image/png;base64,AgUG", content[7].GetProperty("image_url").GetProperty("url").GetString());
+        var label = content[4].GetProperty("text").GetString()!;
+        Assert.StartsWith("Minimapa ANTERIOR (no es la posición actual): ", label);
+        using var age = JsonDocument.Parse(label[label.IndexOf('{')..]);
+        Assert.Equal(10, age.RootElement.GetProperty("antiguedad_segundos").GetDouble());
+        Assert.Equal(125, age.RootElement.GetProperty("tiempo_partida").GetDouble());
+        Assert.Equal("high", content[5].GetProperty("image_url").GetProperty("detail").GetString());
+        var prompt = messages[0].GetProperty("content").GetString()!;
+        Assert.Contains("# PREDICCIÓN TEMPORAL", prompt);
+        Assert.Contains("predecir enemigos ocultos y posibles emboscadas", prompt);
+        Assert.Contains("No ordenes atacar a un enemigo oculto.", prompt);
+    }
+
+    [Theory]
+    [InlineData(5, true)]
+    [InlineData(30, true)]
+    [InlineData(31, false)]
+    [InlineData(0, false)]
+    [InlineData(-1, false)]
+    public async Task OnlyRecentEarlierMinimapsAreIncluded(int elapsedSeconds, bool included)
+    {
+        var handler = new StreamingHandler();
+        using var service = new FoundryCoachingService(new(), "fake-key", new HttpClient(handler));
+        var frequency = TimeProvider.System.TimestampFrequency;
+        var observation = TestObservations.Create(new(120, 3, 400, 900, 500), jpeg: [1, 2, 3]) with
+        { CapturedAt = 100 * frequency, MinimapPng = [4, 5, 6] };
+        await foreach (var part in service.StreamAsync(observation, new(PlayerRole.Top, "Garen", []), [], default)) { }
+        await foreach (var part in service.StreamAsync(observation with { CapturedAt = (100 + elapsedSeconds) * frequency },
+            new(PlayerRole.Top, "Garen", []), [], default)) { }
+        using var request = JsonDocument.Parse(handler.Body);
+        var content = request.RootElement.GetProperty("messages")[1].GetProperty("content");
+        Assert.Equal(included ? 6 : 4, content.GetArrayLength());
     }
 
     [Fact]
@@ -521,6 +586,7 @@ public class IntegrationBoundaryTests
         Assert.Equal("Ataca objetivo 3.", messages[1].GetProperty("content").GetString());
         Assert.Equal("Ataca objetivo 32.", messages[30].GetProperty("content").GetString());
         var content = messages[31].GetProperty("content");
+        Assert.Equal(2, content.GetArrayLength());
         using var context = JsonDocument.Parse(content[0].GetProperty("text").GetString()!);
         Assert.Equal("Garen", context.RootElement.GetProperty("champion").GetString());
         Assert.Equal("BotPractice", context.RootElement.GetProperty("source").GetString());

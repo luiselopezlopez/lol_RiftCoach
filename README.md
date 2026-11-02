@@ -34,7 +34,10 @@ Para generar un instalador Windows `win-x64`, instala [Inno Setup 6](https://jrs
 
 El instalador permite elegir la carpeta, crea accesos directos y no incluye `localsettings.json` ni credenciales. El resultado queda en `artifacts/installer/RiftCoach-Setup-win-x64.exe`.
 
-Cada `push` a `main` genera una nueva release de GitHub con el instalador como asset descargable; esto incluye commits directos y merges de pull requests. La versión y la etiqueta usan el número incremental de ejecución de GitHub Actions (`build-N`), no un número major.minor.bugfix. Si se reejecuta un workflow, se actualiza la misma release y el instalador. Consulta [Releases](https://github.com/luiselopezlopez/lol/releases) o descarga la [última versión](https://github.com/luiselopezlopez/lol/releases/latest).
+Cada `push` a `main` genera una nueva release de GitHub con el instalador como asset descargable; esto incluye commits directos y merges de pull requests. La versión y la etiqueta usan el número incremental de ejecución de GitHub Actions (`build-N`), no un número major.minor.bugfix. Si se reejecuta un workflow, se actualiza la misma release y el instalador. Consulta [Releases](https://github.com/luiselopezlopez/lol_RiftCoach/releases) o [los detalles de la última versión](https://github.com/luiselopezlopez/lol_RiftCoach/releases/latest).
+
+**[Descargar el instalador de la última versión](https://github.com/luiselopezlopez/lol_RiftCoach/releases/latest/download/RiftCoach-Setup-win-x64.exe)**.
+Este enlace fijo descarga siempre el instalador de la release marcada como más reciente, sin conocer su etiqueta `build-N`. GitHub utiliza la ruta `releases/latest/download/<archivo>`, no `releases/download/latest/`; el workflow mantiene el nombre del archivo y marca automáticamente la nueva build como la más reciente.
 
 ## Ventanas
 
@@ -46,7 +49,9 @@ La interfaz se compone de ventanas flotantes dentro de la ventana principal. Cad
 4. **Sesion, partida y depuracion**: Iniciar/Pausar y pestañas de sesion, datos de partida, depuracion de API y la captura de pantalla enviada.
 5. **Recomendacion de campeon y posicion**: cuestionario. Se abre por defecto solo si no hay perfil guardado.
 
-Posicion, tamaño, orden y estado abierto/cerrado de cada ventana se guardan en `Layout` dentro de `localsettings.json` al cerrar el programa y se restauran al abrirlo.
+La disposicion por defecto aprovecha el espacio de la ventana maximizada: campeon y miniguia a la izquierda, Entrenamiento en la columna central amplia, Sesion a la derecha y Campeones abajo a todo el ancho. La fila superior ocupa aproximadamente el 73% de la altura util y la inferior el 27%. Se adapta al tamaño disponible hasta que muevas o redimensiones cada panel. **Ventanas > Restablecer disposición** recupera esta distribucion; el cuestionario solo se abre si no hay perfil.
+
+Posicion, tamaño, orden y estado abierto/cerrado de cada ventana se guardan en `Layout` dentro de `localsettings.json` al cerrar el programa y se restauran al abrirlo. Una distribucion guardada tiene prioridad sobre la predeterminada.
 
 ## Primer uso
 
@@ -95,7 +100,7 @@ El catalogo no contiene precios ni arboles de componentes: la compra asequible y
 
 Las ordenes de combate indican el objetivo y como atacar: `Ataca Garen con E+Q` o `Ataca Garen con 3+Q`. El combo se decide segun las habilidades aprendidas, los objetos equipados y su disponibilidad visible; el orden de subir habilidades no se interpreta como un combo de ataque. Si no hay habilidades disponibles con certeza, se indica `Ataca Garen con clic derecho`. Las torres y la retirada usan ordenes concretas como `Ataca Torre`, `Alejate de Torre` y `Huye de Garen`, sin recomendar ataques bajo una torre enemiga sin proteccion de una oleada aliada. Para distinguir torres aliadas de enemigas, el prompt usa el color de la barra de vida y del minimapa (azul aliada, rojo enemiga), quien recibe los disparos y `lado_mapa`, que indica el equipo del jugador (ORDER azul con base abajo a la izquierda, CHAOS rojo con base arriba a la derecha). Si la torre no se puede identificar, no se ordena atacarla.
 
-En cada turno el prompt pide observar el minimapa para decidir ayudas, defensa de torres y objetivos de jungla antes de atacar subditos por rutina. Puede indicar `Apoya Bot`, `Apoya Mid`, `Ve a Dragon`, `Ataca Dragon`, `Ve a Azul` o `Ataca Gromp` solo con evidencia visible, una ruta viable y sin abandonar una defensa urgente. La orden generica `Farmea` se rechaza. El detalle de imagen `high` mejora el tratamiento de iconos pequenos y puede aumentar tokens, coste y latencia; no recupera informacion que ya se perdio al comprimir o reducir la captura. No se deducen posiciones ocultas, campamentos vivos o reapariciones solo por el tiempo de partida. Estas reglas y el contrato se prueban con transporte controlado; la calidad de las decisiones sobre un minimapa real requiere evaluacion en partida.
+En cada turno el prompt pide observar el minimapa para decidir ayudas, defensa de torres y objetivos de jungla antes de atacar subditos por rutina. Puede indicar `Apoya Bot`, `Apoya Mid`, `Ve a Dragon`, `Ataca Dragon`, `Ve a Azul` o `Ataca Gromp` solo con evidencia visible, una ruta viable y sin abandonar una defensa urgente. La orden generica `Farmea` se rechaza. El detalle de imagen `high` mejora el tratamiento de iconos pequenos y puede aumentar tokens, coste y latencia; el recorte PNG conserva el detalle nativo del minimapa. Las posibles posiciones ocultas y emboscadas se estiman a partir del historial visual reciente, sin tratarlas como hechos. No se deducen campamentos vivos o reapariciones solo por el tiempo de partida. Estas reglas y el contrato se prueban con transporte controlado; la calidad de las decisiones y predicciones sobre un minimapa real requiere evaluacion en partida.
 
 ## Fase, rivales y miniguia
 
@@ -135,6 +140,12 @@ El endpoint inicial es el facilitado por el usuario. `gpt-6-luna` se trata como 
 ## Diagnostico y privacidad
 
 La captura usa Windows.Graphics.Capture y Direct3D, con indicador del sistema. No captura todo el escritorio ni guarda imagenes. Una ventana minimizada/cerrada o una captura caducada detiene el envio. HDR y configuraciones de HUD distintas requieren mas validacion.
+
+Cada envio incluye dos imagenes del mismo fotograma: la ventana completa como JPEG (ancho maximo de 1280 pixeles) y un recorte del minimapa en PNG sin perdida, conservando los pixeles originales antes de reducir la vista general. El recorte es un cuadrado anclado abajo a la derecha, de lado igual al 40% de la altura original (por ejemplo, 432 x 432 en una captura de 1920 x 1080), con margen para el HUD y distintas escalas del minimapa. No aumenta artificialmente la resolucion: el detalle depende de la captura original. Requiere el minimapa en la posicion estandar inferior derecha; un HUD modificado, mapa movido o una ventana superpuesta pueden impedir su lectura.
+
+Ambas imagenes se envian con detalle alto. El prompt pide usar el minimapa para decidir estrategia, apoyos, rutas, defensa y objetivos, contrastandolo con la imagen general y el estado de partida. Cada peticion puede incluir tambien hasta dos minimapas de turnos completados anteriores, con un maximo de 30 segundos de antigüedad, etiquetados con tiempo de partida y antigüedad. Este historial solo vive en memoria durante la sesion. Permite predecir rutas de enemigos ocultos y posibles emboscadas a partir de sus ultimas posiciones y movimientos observados: son hipotesis, no posiciones confirmadas, y no autorizan atacar a un enemigo invisible.
+
+La pestaña **Minimapa** muestra el recorte actual y el tamaño de **Captura** suma las dos imagenes actuales, sin incluir el historial. Las imagenes adicionales pueden incrementar tokens, coste y latencia; no se añade otra peticion HTTP. La calidad de lectura y las predicciones del modelo requieren validacion en una partida real.
 
 Depuracion conserva como maximo 200 registros en memoria por API. El tiempo HTTP es hasta recibir los encabezados/respuesta inicial; la latencia de la frase completa se muestra en Entrenamiento. No se registran cabeceras, API keys, parametros de consulta, cuerpos completos, capturas ni listas de jugadores. El boton de papelera limpia ambas listas. Los fallos antes de una consulta, por ejemplo falta de ApiKey, se muestran como estado, no como una respuesta HTTP ficticia.
 
