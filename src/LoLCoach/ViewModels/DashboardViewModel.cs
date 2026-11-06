@@ -145,6 +145,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string apiStatus = "Sin consultar";
     [ObservableProperty] private string apiLastUpdate = "Sin datos";
     [ObservableProperty] private string ownChampion = "Tu campeón";
+    [ObservableProperty] private string laneOpponent = "Rival de línea: sin datos";
     [ObservableProperty] private string ownVitals = "Sin datos de partida";
     [ObservableProperty] private string ownLevel = "-";
     [ObservableProperty] private string ownHealth = "- / -";
@@ -260,12 +261,27 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     }
 
     public IReadOnlyDictionary<string, PanelLayout> LoadPanelLayout() => store.LoadLayout();
+    public IReadOnlyDictionary<string, PanelLayout> LoadPanelLayout(bool maximized) => store.LoadLayout(maximized);
 
     public void SavePanelLayout(IReadOnlyDictionary<string, PanelLayout> layout)
     {
         try { store.SaveLayout(layout); }
         catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
         { Status = "No se pudo guardar la disposición de las ventanas."; }
+    }
+
+    public void SavePanelLayout(IReadOnlyDictionary<string, PanelLayout> layout, bool maximized)
+    {
+        try { store.SaveLayout(layout, maximized); }
+        catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        { Status = "No se pudo guardar la disposición de las ventanas."; }
+    }
+
+    public void ClearPanelLayouts()
+    {
+        try { store.ClearLayouts(); }
+        catch (Exception exception) when (exception is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        { Status = "No se pudo restablecer la disposición de las ventanas."; }
     }
 
     public async Task InitializeAsync()
@@ -285,7 +301,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         ApiStatus = "Sin consultar"; ApiLastUpdate = "Sin datos"; ApiFields.Clear(); Players.Clear();
         OwnChampion = "Tu campeón"; OwnVitals = "Sin datos de partida"; RosterStatus = "Esperando datos de jugadores";
         OwnLevel = "-"; OwnHealth = "- / -"; OwnGold = "-"; OwnHealthColor = "#A09B8C"; OwnHealthRatio = 0;
-        MiniGuide = ""; GamePhase = "Sin fase disponible";
+        MiniGuide = ""; GamePhase = "Sin fase disponible"; LaneOpponent = "Rival de línea: sin datos";
         ModelStatus = "Comprobando"; ModelReply = "";
         active = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
         var sessionGeneration = ++generation;
@@ -380,6 +396,14 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         OwnHealthColor = HealthColor(snapshot.Health, snapshot.MaxHealth);
         OwnHealthRatio = snapshot.Health is { } health && snapshot.MaxHealth is > 0 ? Math.Clamp(health / snapshot.MaxHealth.Value, 0, 1) : 0;
         GamePhase = $"Fase estimada: {MatchTacticalContext.EstimatePhase(snapshot).Phase}";
+        var fallbackRole = SelectedChampion is null ? null : QuestionnaireService.RoleName(Profile.Role);
+        var laneRivals = MatchTacticalContext.SamePositionRivals(snapshot, fallbackRole);
+        LaneOpponent = laneRivals.Length switch
+        {
+            1 => $"Rival de línea: {laneRivals[0].Champion}",
+            > 1 => "Rival de línea: varios candidatos",
+            _ => "Rival de línea: sin datos de posición"
+        };
         Players.Clear();
         foreach (var player in snapshot.Roster.OrderBy(player => player.Relation == "Rival" ? 0 : player.IsOwn ? 1 : 2))
             Players.Add(new(player));

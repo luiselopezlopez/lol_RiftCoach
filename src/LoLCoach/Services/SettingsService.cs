@@ -54,6 +54,7 @@ public sealed class SettingsService
         public PlayerProfile? Profile { get; init; }
         public bool AllowUnverifiedBotOpponentsForDebugging { get; init; }
         public Dictionary<string, PanelLayout>? Layout { get; init; }
+        public Dictionary<string, Dictionary<string, PanelLayout>>? Layouts { get; init; }
     }
 
     private sealed class OptionalProfileConverter : JsonConverter<PlayerProfile>
@@ -239,9 +240,51 @@ public sealed class SettingsService
         }
     }
 
+    public IReadOnlyDictionary<string, PanelLayout> LoadLayout(bool maximized)
+    {
+        try
+        {
+            var local = ReadLocalSettings();
+            var key = maximized ? "Maximized" : "Normal";
+            if (local.Layouts is not null && local.Layouts.TryGetValue(key, out var saved))
+                return saved.Where(entry => entry.Value is { IsValid: true })
+                    .ToDictionary(entry => entry.Key, entry => entry.Value);
+            if (maximized && local.Layout is { } legacy)
+                return legacy.Where(entry => entry.Value is { IsValid: true })
+                    .ToDictionary(entry => entry.Key, entry => entry.Value);
+            return new Dictionary<string, PanelLayout>();
+        }
+        catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
+        {
+            return new Dictionary<string, PanelLayout>();
+        }
+    }
+
     public void SaveLayout(IReadOnlyDictionary<string, PanelLayout> layout)
         => WriteLocalSettings(ReadLocalSettings() with { Layout = layout.Where(entry => entry.Value.IsValid)
             .ToDictionary(entry => entry.Key, entry => entry.Value) });
+
+    public void SaveLayout(IReadOnlyDictionary<string, PanelLayout> layout, bool maximized)
+    {
+        var local = ReadLocalSettings();
+        var layouts = local.Layouts is null
+            ? new Dictionary<string, Dictionary<string, PanelLayout>>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, Dictionary<string, PanelLayout>>(local.Layouts, StringComparer.OrdinalIgnoreCase);
+        var saved = layout.Where(entry => entry.Value.IsValid)
+            .ToDictionary(entry => entry.Key, entry => entry.Value);
+        layouts[maximized ? "Maximized" : "Normal"] = saved;
+        WriteLocalSettings(local with
+        {
+            Layouts = layouts,
+            Layout = maximized ? saved : local.Layout
+        });
+    }
+
+    public void ClearLayouts()
+    {
+        var local = ReadLocalSettings();
+        WriteLocalSettings(local with { Layout = null, Layouts = null });
+    }
 
     public void SaveKey(string key)
     {

@@ -61,9 +61,9 @@ public class FloatingPanel : ContentControl
         Height = Math.Max(MinHeight, layout.Height);
         Canvas.SetLeft(this, layout.Left);
         Canvas.SetTop(this, layout.Top);
-        Panel.SetZIndex(this, layout.ZIndex);
         IsOpen = layout.IsOpen;
         KeepInside();
+        Panel.SetZIndex(this, layout.ZIndex);
     }
 
     /// <summary>Keeps at least the title bar reachable inside the workspace.</summary>
