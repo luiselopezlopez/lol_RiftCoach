@@ -43,15 +43,16 @@ Este enlace fijo descarga siempre el instalador de la release marcada como más 
 
 La interfaz se compone de ventanas flotantes dentro de la ventana principal. Cada una se mueve arrastrando su barra de titulo, se redimensiona desde los bordes izquierdo, derecho, inferior o las esquinas inferiores, y se cierra con la X. El menu **Ventanas** permite volver a abrir cualquier ventana cerrada o restablecer la disposicion por defecto.
 
-1. **Campeon y miniguia**: campeon elegido, miniguia de habilidades y estadisticas propias en partida.
-2. **Entrenamiento**: historial de los ultimos 30 consejos.
-3. **Campeones**: un campeon por columna en horizontal, con los rivales primero.
-4. **Sesion, partida y depuracion**: Iniciar/Pausar y pestañas de sesion, datos de partida, depuracion de API y la captura de pantalla enviada.
-5. **Recomendacion de campeon y posicion**: cuestionario. Se abre por defecto solo si no hay perfil guardado.
+1. **Campeon**: campeon elegido y estadisticas propias de la partida.
+2. **Miniguia**: habilidades y estrategia frente al rival detectado en tu posicion.
+3. **Entrenamiento**: historial de los ultimos 30 consejos.
+4. **Campeones**: un campeon por columna en horizontal, con los rivales primero.
+5. **Sesion, partida y depuracion**: Iniciar/Pausar y pestañas de sesion, datos de partida, depuracion de API y la captura de pantalla enviada.
+6. **Recomendacion de campeon y posicion**: cuestionario. Se abre por defecto solo si no hay perfil guardado.
 
-La disposicion por defecto aprovecha el espacio de la ventana maximizada: campeon y miniguia a la izquierda, Entrenamiento en la columna central amplia, Sesion a la derecha y Campeones abajo a todo el ancho. La fila superior ocupa aproximadamente el 73% de la altura util y la inferior el 27%. Se adapta al tamaño disponible hasta que muevas o redimensiones cada panel. **Ventanas > Restablecer disposición** recupera esta distribucion; el cuestionario solo se abre si no hay perfil.
+La disposicion por defecto aprovecha el espacio de la ventana maximizada: Campeon a la izquierda, Entrenamiento en la columna central amplia, Sesion a la derecha y Campeones y Miniguia en paneles separados abajo. La fila superior ocupa aproximadamente el 73% de la altura util y la inferior el 27%. **Ventanas > Restablecer disposición** recupera esta distribucion; el cuestionario solo se abre si no hay perfil.
 
-Posicion, tamaño, orden y estado abierto/cerrado de cada ventana se guardan en `Layout` dentro de `localsettings.json` al cerrar el programa y se restauran al abrirlo. Una distribucion guardada tiene prioridad sobre la predeterminada.
+Posicion, tamaño, orden y estado abierto/cerrado se guardan por separado para la ventana principal normal y maximizada en `Layouts` dentro de `localsettings.json`. Al cambiar de estado se guarda el esquema actual y se restaura el otro. La antigua propiedad `Layout` se conserva para compatibilidad y sirve como esquema maximizado al migrar.
 
 ## Primer uso
 
@@ -96,7 +97,7 @@ Cada consulta al modelo incluye solo la build objetivo, objetos iniciales, orden
 
 Con los cuatro rangos de habilidades disponibles se calculan los puntos sin gastar y la siguiente mejora legal para campeones de progresion estandar, respetando desbloqueos, limites de rango y niveles de la R. Para Aphelios, Jayce, Elise, Nidalee, Karma y Udyr se envia la secuencia del catalogo sin deducir puntos o mejoras con reglas genericas. Los campos ausentes permanecen desconocidos. Se aceptan ordenes como `Mejora Q`, `Ataca Canon` y `Usa 3+Q`, sin automatizar teclas del juego.
 
-El catalogo no contiene precios ni arboles de componentes: la compra asequible y los enfriamientos deben comprobarse en la tienda y los iconos visibles. No se inventan precios ni se garantiza que las builds suministradas sean optimas o validas para todas las situaciones. El contrato de respuestas sigue siendo una orden de una linea; los consejos separados descritos en el prompt todavia no se procesan.
+El catalogo no contiene precios ni arboles de componentes: la compra asequible y los enfriamientos deben comprobarse en la tienda y los iconos visibles. No se inventan precios ni se garantiza que las builds suministradas sean optimas o validas para todas las situaciones. Cada respuesta puede incluir una orden y una segunda linea `Táctica:` con consejo contextual breve.
 
 Las ordenes de combate indican el objetivo y como atacar: `Ataca Garen con E+Q` o `Ataca Garen con 3+Q`. El combo se decide segun las habilidades aprendidas, los objetos equipados y su disponibilidad visible; el orden de subir habilidades no se interpreta como un combo de ataque. Si no hay habilidades disponibles con certeza, se indica `Ataca Garen con clic derecho`. Las torres y la retirada usan ordenes concretas como `Ataca Torre`, `Alejate de Torre` y `Huye de Garen`, sin recomendar ataques bajo una torre enemiga sin proteccion de una oleada aliada. Para distinguir torres aliadas de enemigas, el prompt usa el color de la barra de vida y del minimapa (azul aliada, rojo enemiga), quien recibe los disparos y `lado_mapa`, que indica el equipo del jugador (ORDER azul con base abajo a la izquierda, CHAOS rojo con base arriba a la derecha). Si la torre no se puede identificar, no se ordena atacarla.
 
@@ -106,7 +107,9 @@ En cada turno el prompt pide observar el minimapa para decidir ayudas, defensa d
 
 El contexto de cada orden incluye una fase tactica estimada con minutos y nivel: early mientras el tiempo es menor de 14 minutos y el nivel menor de 9; mid a partir de cualquiera de esos umbrales; late desde 28 minutos con nivel 14 o superior, o desde 35 minutos aunque el campeon vaya retrasado. Si faltan ambos datos, la fase es desconocida. No es una medida exacta del estado global: el prompt debe adaptar intercambios, apoyo, objetivos y posicion al rol, habilidades aprendidas, objetos y ventaja de los rivales.
 
-Al detectar una partida verificada se prepara una miniguia de unas 180 palabras (se rechazan respuestas desbordadas de mas de 320 palabras o 3200 caracteres), antes de comenzar las capturas e instrucciones. Aparece en un panel separado y describe el papel del campeon, pasiva, Q/W/E/R, cuando usarlas, un combo sencillo, una precaucion frente a los enemigos y el plan de early/mid/late. Las descripciones se obtienen de Data Dragon es_ES en la version del catalogo de progresion y se guardan en cache. Si faltan, el modelo debe indicar la limitacion sin inventar habilidades. La ficha disponible se reutiliza como contexto de las siguientes ordenes.
+Al detectar una partida verificada se prepara una miniguia de unas 180 palabras (se rechazan respuestas desbordadas de mas de 320 palabras o 3200 caracteres), antes de comenzar las capturas e instrucciones. Aparece en su propio panel y describe el papel del campeon, pasiva, Q/W/E/R, cuando usarlas, un combo sencillo, el plan de early/mid/late y, si la API identifica un unico rival en la misma posicion, una estrategia de linea concreta. La posicion se compara localmente; Azure recibe los campeones enemigos y el rival directo elegido, sin IDs de jugador ni posiciones rivales. Si faltan datos o hay varios candidatos, no se inventa el emparejamiento. Las descripciones publicas se obtienen de Data Dragon es_ES y se guardan en cache. La ficha del rival se reutiliza como contexto de las siguientes ordenes.
+
+Durante cada captura el modelo revisa campeones claramente visibles. Cuando identifica una amenaza, puede añadir una linea `Táctica:` con indicaciones sobre intercambio, habilidades que conviene esperar, objetivo y retirada. No afirma alcance, vida o enfriamientos que no se vean.
 
 La guia tiene un plazo total de 30 segundos y supone una consulta adicional de pago al modelo por inicio de sesion, aparte de la comprobacion de disponibilidad y del contador de capturas. Si falla o agota el plazo, se muestra el aviso y continua el entrenamiento con una captura fresca. Pausar cancela tambien la guia. No se lee automaticamente en voz para evitar interrumpir las instrucciones de combate. Las compras, mejoras, combos y restricciones de bots/PvP se mantienen.
 

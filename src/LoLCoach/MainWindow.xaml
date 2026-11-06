@@ -24,7 +24,7 @@
         <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/><Setter Property="TextWrapping" Value="Wrap"/>
         <Style.Triggers><DataTrigger Binding="{Binding IsLatest}" Value="True">
           <Setter Property="FontFamily" Value="{StaticResource DisplayFont}"/>
-          <Setter Property="FontSize" Value="54"/><Setter Property="LineHeight" Value="67.5"/>
+          <Setter Property="FontSize" Value="38"/><Setter Property="LineHeight" Value="47.5"/>
           <Setter Property="Foreground" Value="{StaticResource Gold2Brush}"/><Setter Property="FontWeight" Value="Bold"/>
         </DataTrigger></Style.Triggers>
       </Style>
@@ -73,7 +73,8 @@
                     IsEnabled="{Binding CanChangeMode}" Click="OnOpenSettings"
                     ToolTip="Pausa la sesión para editar la configuración."/>
           <MenuItem Header="_Ventanas" Padding="10,6">
-            <MenuItem Header="Campeón y miniguía" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=ChampionPanel}"/>
+            <MenuItem Header="Campeón" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=ChampionPanel}"/>
+            <MenuItem Header="Miniguía" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=GuidePanel}"/>
             <MenuItem Header="Entrenamiento" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=TrainingPanel}"/>
             <MenuItem Header="Campeones" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=ChampionsPanel}"/>
             <MenuItem Header="Sesión y partida" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=SessionPanel}"/>
@@ -90,19 +91,11 @@
     <Rectangle Grid.Row="1" Fill="{StaticResource HexPatternBrush}" IsHitTestVisible="False"/>
     <Canvas x:Name="Workspace" Grid.Row="1" ClipToBounds="True" Background="Transparent" SizeChanged="OnWorkspaceSizeChanged">
 
-      <controls:FloatingPanel x:Name="ChampionPanel" Title="Campeón y miniguía" Canvas.Left="8" Canvas.Top="8" Width="330" Height="400">
+      <controls:FloatingPanel x:Name="ChampionPanel" Title="Campeón" Canvas.Left="8" Canvas.Top="8" Width="270" Height="400">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="0,0,8,0">
             <TextBlock Text="CAMPEÓN ELEGIDO" Style="{StaticResource Caption}"/>
             <ComboBox ItemsSource="{Binding Champions}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedChampion}" AutomationProperties.Name="Campeón elegido"/>
-            <Expander x:Name="MiniGuidePanel" Header="Miniguía de habilidades" IsExpanded="True" Margin="0,0,0,12">
-              <Grid>
-                <TextBlock Text="{Binding MiniGuide}" FontSize="15" LineHeight="22" Margin="0,6,0,8"/>
-                <TextBlock Text="La miniguía de habilidades aparecerá al detectar la partida." Style="{StaticResource Label}" FontStyle="Italic" Margin="0,6,0,8">
-                  <TextBlock.Visibility><Binding Path="MiniGuide" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
-                </TextBlock>
-              </Grid>
-            </Expander>
             <TextBlock Text="TU CAMPEÓN EN PARTIDA" Style="{StaticResource Caption}"/>
             <TextBlock Text="{Binding OwnChampion}" FontFamily="{StaticResource DisplayFont}" FontSize="26" FontWeight="Bold" Margin="0,2,0,0"
                        Foreground="{StaticResource GoldTextBrush}"/>
@@ -137,6 +130,22 @@
             </Expander>
           </StackPanel>
         </ScrollViewer>
+      </controls:FloatingPanel>
+
+      <controls:FloatingPanel x:Name="GuidePanel" Title="Miniguía" Canvas.Left="8" Canvas.Top="416" Width="320" Height="240" MinWidth="240" MinHeight="160">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Text="{Binding LaneOpponent}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Expander x:Name="MiniGuidePanel" Header="Estrategia del campeón" IsExpanded="True">
+            <Grid>
+              <TextBlock Text="{Binding MiniGuide}" FontSize="15" LineHeight="22" Margin="0,6,8,8" TextWrapping="Wrap"/>
+              <TextBlock Text="La miniguía aparecerá al detectar la partida." Style="{StaticResource Label}" FontStyle="Italic" Margin="0,6,8,8" TextWrapping="Wrap">
+                <TextBlock.Visibility><Binding Path="MiniGuide" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
+              </TextBlock>
+            </Grid>
+            </Expander>
+          </ScrollViewer>
+        </DockPanel>
       </controls:FloatingPanel>
 
       <controls:FloatingPanel x:Name="TrainingPanel" Title="Entrenamiento" Canvas.Left="346" Canvas.Top="8" Width="440" Height="400">

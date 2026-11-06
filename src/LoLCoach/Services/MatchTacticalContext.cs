@@ -28,6 +28,28 @@ public static class MatchTacticalContext
 
     public static EnemyTactics[] Enemies(GameSnapshot snapshot) => snapshot.Roster
         .Where(player => player.Relation == "Rival")
-        .Select(player => new EnemyTactics(player.Champion, player.Level, player.Kills, player.Deaths, player.Assists,
-            player.IsDead, player.Items.Select(item => item.Name).ToArray())).ToArray();
+        .Select(ToEnemyTactics).ToArray();
+
+    public static EnemyTactics[] SamePositionRivals(GameSnapshot snapshot, string? fallbackPosition = null)
+    {
+        var ownPosition = NormalizePosition(snapshot.Player?.Position) ?? NormalizePosition(fallbackPosition);
+        if (ownPosition is null) return [];
+        return snapshot.Roster.Where(player => player.Relation == "Rival"
+                && NormalizePosition(player.Position) == ownPosition)
+            .Select(ToEnemyTactics).ToArray();
+    }
+
+    public static string? NormalizePosition(string? position) => position?.Trim().ToUpperInvariant() switch
+    {
+        "TOP" => "top",
+        "JUNGLE" or "JUNGLA" => "jungle",
+        "MID" or "MIDDLE" or "MEDIO" => "mid",
+        "BOT" or "BOTTOM" or "ADC" or "TIRADOR" => "bot",
+        "UTILITY" or "SUPPORT" or "SUPPORTER" or "APOYO" => "support",
+        _ => null
+    };
+
+    private static EnemyTactics ToEnemyTactics(RosterPlayer player)
+        => new(player.Champion, player.Level, player.Kills, player.Deaths, player.Assists,
+            player.IsDead, player.Items.Select(item => item.Name).ToArray());
 }

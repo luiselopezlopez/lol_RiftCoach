@@ -13,8 +13,9 @@ public partial class MainWindow : Window
     private readonly DashboardViewModel viewModel;
     private readonly Dictionary<string, FloatingPanel> panels;
     private readonly Dictionary<string, PanelLayout> defaultLayout;
-    private readonly HashSet<string> automaticLayout = [];
+    private readonly Dictionary<bool, HashSet<string>> automaticLayouts = new() { [false] = [], [true] = [] };
     private bool layoutLoaded;
+    private bool activeLayoutMaximized = true;
     private bool closing;
     private bool shutdownStarted;
     private readonly bool startAutomatically;
@@ -29,14 +30,15 @@ public partial class MainWindow : Window
         this.startAutomatically = startAutomatically;
         panels = new()
         {
-            ["champion"] = ChampionPanel, ["training"] = TrainingPanel, ["champions"] = ChampionsPanel,
+            ["champion"] = ChampionPanel, ["guide"] = GuidePanel, ["training"] = TrainingPanel, ["champions"] = ChampionsPanel,
             ["session"] = SessionPanel, ["recommendation"] = RecommendationPanel
         };
         defaultLayout = panels.Select((entry, index) => (entry.Key, Layout: entry.Value.GetLayout() with { ZIndex = index + 1 }))
             .ToDictionary(entry => entry.Key, entry => entry.Layout);
         foreach (var (id, panel) in panels)
-            panel.LayoutEdited += (_, _) => automaticLayout.Remove(id);
+            panel.LayoutEdited += (_, _) => automaticLayouts[activeLayoutMaximized].Remove(id);
         viewModel.ProfileSaved += (_, _) => { TrainingPanel.IsOpen = true; TrainingPanel.BringToFront(); };
+        StateChanged += OnWindowStateChanged;
         Loaded += OnLoaded;
     }
 
@@ -47,13 +49,16 @@ public partial class MainWindow : Window
 
     private async void OnLoaded(object sender, RoutedEventArgs args)
     {
-        ApplyLayout(viewModel.LoadPanelLayout());
+        activeLayoutMaximized = WindowState == WindowState.Maximized;
+        ApplyLayout(viewModel.LoadPanelLayout(activeLayoutMaximized));
         layoutLoaded = true;
         if (startAutomatically) await viewModel.InitializeAsync();
     }
 
     private void ApplyLayout(IReadOnlyDictionary<string, PanelLayout> saved)
     {
+        var automaticLayout = automaticLayouts[activeLayoutMaximized];
+        automaticLayout.Clear();
         var defaults = CreateDefaultLayout();
         foreach (var (id, panel) in panels)
         {
@@ -68,19 +73,23 @@ public partial class MainWindow : Window
         var minimumWidth = ChampionPanel.MinWidth + TrainingPanel.MinWidth + SessionPanel.MinWidth;
         var gap = Math.Clamp((Workspace.ActualWidth - minimumWidth) / 4, 0, 8);
         var width = Math.Max(minimumWidth + gap * 4, Workspace.ActualWidth);
-        var height = Math.Max(TrainingPanel.MinHeight + ChampionsPanel.MinHeight + gap * 3, Workspace.ActualHeight);
+        var height = Math.Max(TrainingPanel.MinHeight + Math.Max(ChampionsPanel.MinHeight, GuidePanel.MinHeight) + gap * 3,
+            Workspace.ActualHeight);
         var contentWidth = width - gap * 2;
         var contentHeight = height - gap * 3;
         var leftWidth = Math.Max(ChampionPanel.MinWidth, contentWidth * 0.175);
         var rightWidth = Math.Max(SessionPanel.MinWidth, contentWidth * 0.16);
-        var bottomHeight = Math.Max(ChampionsPanel.MinHeight, contentHeight * 0.27);
+        var bottomHeight = Math.Max(Math.Max(ChampionsPanel.MinHeight, GuidePanel.MinHeight), contentHeight * 0.27);
         var topHeight = contentHeight - bottomHeight;
+        var guideWidth = Math.Min(420, Math.Min(contentWidth * 0.38, Math.Max(GuidePanel.MinWidth, contentWidth * 0.22)));
+        var championsWidth = contentWidth - guideWidth - gap;
         var layout = new Dictionary<string, PanelLayout>(defaultLayout)
         {
             ["champion"] = new(gap, gap, leftWidth, topHeight, true, 1),
             ["training"] = new(leftWidth + gap * 2, gap, contentWidth - leftWidth - rightWidth - gap * 2, topHeight, true, 2),
             ["session"] = new(width - gap - rightWidth, gap, rightWidth, topHeight, true, 3),
-            ["champions"] = new(gap, topHeight + gap * 2, contentWidth, bottomHeight, true, 4)
+            ["champions"] = new(gap, topHeight + gap * 2, championsWidth, bottomHeight, true, 4),
+            ["guide"] = new(width - gap - guideWidth, topHeight + gap * 2, guideWidth, bottomHeight, true, 5)
         };
         var recommendation = defaultLayout["recommendation"];
         var recommendationWidth = Math.Min(recommendation.Width, contentWidth);
@@ -117,7 +126,8 @@ public partial class MainWindow : Window
 
     private void OnResetLayout(object sender, RoutedEventArgs args)
     {
-        automaticLayout.Clear();
+        automaticLayouts[false].Clear(); automaticLayouts[true].Clear();
+        viewModel.ClearPanelLayouts();
         ApplyLayout(new Dictionary<string, PanelLayout>());
     }
 
@@ -125,12 +135,26 @@ public partial class MainWindow : Window
     {
         if (!layoutLoaded) return;
         var defaults = CreateDefaultLayout();
-        foreach (var id in automaticLayout)
+        foreach (var id in automaticLayouts[activeLayoutMaximized])
         {
             var panel = panels[id];
             panel.ApplyLayout(defaults[id] with { IsOpen = panel.IsOpen, ZIndex = System.Windows.Controls.Panel.GetZIndex(panel) });
         }
         foreach (var panel in panels.Values.Where(panel => panel.IsOpen)) panel.KeepInside();
+    }
+
+    private void OnWindowStateChanged(object? sender, EventArgs args)
+    {
+        if (!layoutLoaded || shutdownStarted || WindowState is not (WindowState.Normal or WindowState.Maximized)) return;
+        var nextMaximized = WindowState == WindowState.Maximized;
+        if (nextMaximized == activeLayoutMaximized) return;
+        viewModel.SavePanelLayout(CaptureLayout(), activeLayoutMaximized);
+        activeLayoutMaximized = nextMaximized;
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (shutdownStarted) return;
+            ApplyLayout(viewModel.LoadPanelLayout(activeLayoutMaximized));
+        }), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnHistorySizeChanged(object sender, SizeChangedEventArgs args)
@@ -145,7 +169,7 @@ public partial class MainWindow : Window
         args.Cancel = true;
         if (shutdownStarted) return;
         shutdownStarted = true;
-        viewModel.SavePanelLayout(CaptureLayout());
+        viewModel.SavePanelLayout(CaptureLayout(), activeLayoutMaximized);
         await viewModel.ShutdownAsync();
         closing = true;
         _ = Dispatcher.BeginInvoke(new Action(Close));
