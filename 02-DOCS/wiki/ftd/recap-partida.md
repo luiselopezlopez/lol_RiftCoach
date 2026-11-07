@@ -10,7 +10,7 @@ Al terminar una partida de práctica, mostrar en Entrenamiento un análisis ampl
 
 ## Scope
 - Detectar la pérdida sostenida de datos de una partida verificada, continuar si la API se recupera y no generar el recap al pausar o perder la verificación de bots.
-- Al alcanzar `RequestLimit`, detener consejos y capturas enviadas, pero seguir leyendo estadísticas locales verificadas hasta detectar el cierre o cancelar.
+- Mantener consejos y capturas durante toda la partida, sin detenerse por un contador de turnos; detenerse solo al pausar, ante un error/estado no verificable o al detectar el fin de los datos de partida.
 - Mantener en memoria muestras resumidas de la plantilla durante la sesión para comparar progreso y resultado final sin conservar capturas en disco.
 - Pedir al modelo un recap con estadísticas propias, comparación por equipo y partida, tendencias observadas, fortalezas que conviene repetir, errores o riesgos respaldados por datos y lecciones prácticas.
 - Mostrar el recap completo en la ventana Entrenamiento, separado de los consejos breves y conservado hasta la siguiente partida o el cierre de la app.
@@ -31,13 +31,13 @@ Al terminar una partida de práctica, mostrar en Entrenamiento un análisis ampl
 - `dotnet build src/LoLCoach/LoLCoach.csproj`: compilación correcta, 0 advertencias y 0 errores.
 - `rsc risk`: tier 1 para el primer cambio de código. La revisión encontró una posible retención sin límite de caracteres; se validó cada consejo con `AdviceValidator`, la revisión posterior aprobó y el hallazgo quedó registrado como fixed. El verificador independiente no pudo reconstruir el texto previo porque el archivo aún no estaba versionado.
 - `CoachingSession` vuelve a consultar cuatro veces con pausas de dos segundos; si una lectura se recupera, continúa. Tras cuatro fallos genera el informe con la señal `LiveClientDataUnavailableAfterRetries`.
-- Si se alcanza `RequestLimit`, la app deja de enviar consejos y capturas, pero consulta solo estadísticas verificadas cada cinco segundos hasta cuatro fallos consecutivos; permite cancelar durante esa espera.
+- La sesión ya no tiene `RequestLimit`: el flujo normal sigue solicitando consejos hasta que la persona lo pausa o la API local deja de responder en cuatro comprobaciones seguidas; entonces se intenta el recap.
 - El prompt recibe una descripción localizada desde un enum cerrado; no recibe texto de fin libre ni afirma que la partida o el resultado estén confirmados.
 - Entrenamiento muestra el recap expandido, en un área desplazable separada. Lo conserva al reintentar y lo limpia cuando el tiempo de una partida nueva vuelve a empezar.
 - `README.md` documenta el fin provisional, el muestreo, la retención en memoria, la privacidad y el coste adicional.
 - `rsc risk`: tier 1 para `informe-modelo` y `fin-api`. Las revisiones independientes aprobaron ambos cambios. Se corrigieron dos hallazgos del prompt/contrato y quedaron registrados como fixed; un verificador calificó la exposición del texto libre como no probada en una ruta activa.
 - `dotnet build src/LoLCoach/LoLCoach.csproj`: compilación correcta, 0 advertencias y 0 errores después de integrar la generación del recap.
-- `rsc risk`: tier 1 para `panel-entrenamiento` y `limite-y-documentacion`. Las revisiones aprobaron la vista, la persistencia, la espera tras `RequestLimit` y la descripción del muestreo.
+- `rsc risk`: tier 1 para `panel-entrenamiento` y `limite-y-documentacion`. Las revisiones aprobaron la vista, la persistencia y la descripción del muestreo. La espera especial posterior a `RequestLimit` quedó retirada por `sesion-sin-limite-turnos`; el flujo normal ya continúa hasta cancelación o fin de datos.
 - `git diff --check`: sin errores de formato.
 - Las pruebas automáticas no se ejecutaron.
 - No se generó un recap con un modelo real ni se hizo una prueba visual/interactiva en una partida; esas comprobaciones quedan pendientes.
