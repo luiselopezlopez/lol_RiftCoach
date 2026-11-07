@@ -11,6 +11,7 @@ Al terminar una partida de práctica, mostrar en Entrenamiento un análisis ampl
 ## Scope
 - Detectar la pérdida sostenida de datos de una partida verificada, continuar si la API se recupera y no generar el recap al pausar o perder la verificación de bots.
 - Añadir junto al título de Entrenamiento una acción para indicar manualmente el fin de partida y generar el recap con las muestras ya reunidas; debe cancelar el consejo en curso, detener la sesión y no afirmar un resultado que los datos no muestran.
+- Enlazar la acción del encabezado de forma explícita con el comando del panel para que el clic no dependa del `DataContext` heredado por el contenido de cabecera.
 - Mantener consejos y capturas durante toda la partida, sin detenerse por un contador de turnos; detenerse solo al pausar, ante un error/estado no verificable o al detectar el fin de los datos de partida.
 - Mantener en memoria muestras resumidas de la plantilla durante la sesión para comparar progreso y resultado final sin conservar capturas en disco.
 - Pedir al modelo un recap con estadísticas propias, comparación por equipo y partida, tendencias observadas, fortalezas que conviene repetir, errores o riesgos respaldados por datos y lecciones prácticas.
@@ -22,6 +23,7 @@ Al terminar una partida de práctica, mostrar en Entrenamiento un análisis ampl
 - [ ] Definir un historial acotado de la partida; prueba: guarda muestras regulares con un umbral de 60 segundos, más la última muestra si es más reciente, y consejos completados, sin identidades ni capturas.
 - [ ] Detectar la pérdida sostenida de datos; prueba: cuatro fallos seguidos activan el recap, una lectura recuperada continúa la sesión, y pausa o pérdida de verificación no lo activan.
 - [x] Añadir el botón «Fin de partida» junto al título de Entrenamiento; permanece desactivado hasta recibir datos, cancela un consejo en curso y genera el recap manual sin cambiar la pausa normal.
+- [x] Enlazar el botón con `DashboardViewModel.FinishMatchCommand` mediante el `FloatingPanel` ascendente; el clic ya no depende del contexto de datos heredado.
 - [ ] Validar en la app y en una partida que el botón ocupa la cabecera, detiene la sesión y muestra el recap generado.
 - [ ] Acumular estadísticas comparables por jugador a lo largo de la partida; prueba: el resumen conserva marcas temporales y valores finales, y omite campos ausentes.
 - [ ] Generar el análisis final a partir de los datos capturados; prueba: el contrato incluye comparación con aliados y rivales, aciertos repetibles, prioridades de mejora y límites de evidencia.
@@ -41,6 +43,8 @@ Al terminar una partida de práctica, mostrar en Entrenamiento un análisis ampl
 - El botón de la cabecera de Entrenamiento usa una señal separada de Pausar; cierra una solicitud de consejo en curso y pasa al recap las muestras ya registradas con la evidencia `PlayerIndicatedMatchEnded`.
 - Tres rondas de revisión independiente no encontraron hallazgos; `dotnet build src/LoLCoach/LoLCoach.csproj --no-restore -o .rsc/build-output` terminó con 0 advertencias y 0 errores.
 - La cabecera reserva una columna fija para cerrar el panel, coloca «Fin de partida» junto al título y permite que el título se recorte si falta espacio.
+- El binding explícito del botón apunta a `DashboardViewModel.FinishMatchCommand`; la revisión confirmó que el comando se habilita tras una observación y cancela la sesión para generar el recap.
+- `dotnet build src/LoLCoach/LoLCoach.csproj --no-restore -o .rsc/build-output`: compilación correcta, 0 advertencias y 0 errores después de corregir el binding.
 - README describe la acción manual y aclara que una señal humana no verifica el resultado.
 - `rsc risk`: tier 1 para `informe-modelo` y `fin-api`. Las revisiones independientes aprobaron ambos cambios. Se corrigieron dos hallazgos del prompt/contrato y quedaron registrados como fixed; un verificador calificó la exposición del texto libre como no probada en una ruta activa.
 - `dotnet build src/LoLCoach/LoLCoach.csproj`: compilación correcta, 0 advertencias y 0 errores después de integrar la generación del recap.
