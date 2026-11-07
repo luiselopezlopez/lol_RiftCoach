@@ -1,7 +1,8 @@
 <Window x:Class="LoLCoach.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:icons="http://metro.mahapps.com/winfx/xaml/iconpacks"
+        xmlns:loc="clr-namespace:LoLCoach.Services"
         xmlns:controls="clr-namespace:LoLCoach.Controls"
-        Title="Rift Coach" Width="1120" Height="840" MinWidth="760" MinHeight="640"
+        Title="{loc:Translate 'Rift Coach'}" Width="1120" Height="840" MinWidth="760" MinHeight="640"
         Background="#010A13" Foreground="#F0E6D2" FontFamily="Spiegel, Segoe UI" FontSize="15"
         TextOptions.TextFormattingMode="Display" UseLayoutRounding="True"
         WindowStartupLocation="CenterScreen" WindowState="Maximized" Closing="OnClosing" SourceInitialized="OnSourceInitialized">
@@ -51,9 +52,9 @@
       <Border Height="1" VerticalAlignment="Bottom" Background="{StaticResource GoldFadeBothBrush}"/>
       <DockPanel Margin="18,10,20,10">
         <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" Margin="24,0,0,0" VerticalAlignment="Center">
-          <TextBlock Text="{Binding ProfileLabel}" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="15"
+          <TextBlock Text="{loc:LocalizedBinding ProfileLabel}" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="15"
                      Foreground="{StaticResource Gold1Brush}" TextAlignment="Right"/>
-          <TextBlock Text="{Binding Status}" Style="{StaticResource Label}" TextAlignment="Right" MaxWidth="400"/>
+          <TextBlock Text="{loc:LocalizedBinding Status}" Style="{StaticResource Label}" TextAlignment="Right" MaxWidth="400"/>
         </StackPanel>
         <Viewbox Width="38" Height="38" Margin="0,0,12,0" VerticalAlignment="Center">
           <Canvas Width="34" Height="34">
@@ -65,22 +66,22 @@
           </Canvas>
         </Viewbox>
         <StackPanel VerticalAlignment="Center" Margin="0,0,28,0">
-          <TextBlock Text="RIFT COACH" FontFamily="{StaticResource DisplayFont}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource GoldMetalBrush}" TextWrapping="NoWrap"/>
-          <TextBlock Text="ENTRENADOR DE LA GRIETA" Style="{StaticResource Caption}" FontSize="10" Foreground="{StaticResource Blue2Brush}" Margin="1,0,0,0"/>
+          <TextBlock Text="{loc:Translate 'RIFT COACH'}" FontFamily="{StaticResource DisplayFont}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource GoldMetalBrush}" TextWrapping="NoWrap"/>
+          <TextBlock Text="{loc:Translate 'ENTRENADOR DE LA GRIETA'}" Style="{StaticResource Caption}" FontSize="10" Foreground="{StaticResource Blue2Brush}" Margin="1,0,0,0"/>
         </StackPanel>
         <Menu x:Name="MainMenu" VerticalAlignment="Center" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="14">
-          <MenuItem x:Name="ConfigurationMenuItem" Header="_Configuración" Padding="10,6"
+          <MenuItem x:Name="ConfigurationMenuItem" Header="{loc:Translate '_Configuración'}" Padding="10,6"
                     IsEnabled="{Binding CanChangeMode}" Click="OnOpenSettings"
-                    ToolTip="Pausa la sesión para editar la configuración."/>
-          <MenuItem Header="_Ventanas" Padding="10,6">
-            <MenuItem Header="Campeón" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=ChampionPanel}"/>
-            <MenuItem Header="Miniguía" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=GuidePanel}"/>
-            <MenuItem Header="Entrenamiento" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=TrainingPanel}"/>
-            <MenuItem Header="Campeones" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=ChampionsPanel}"/>
-            <MenuItem Header="Sesión y partida" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=SessionPanel}"/>
-            <MenuItem Header="Recomendación de campeón" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=RecommendationPanel}"/>
+                    ToolTip="{loc:Translate 'Pausa la sesión para editar la configuración.'}"/>
+          <MenuItem Header="{loc:Translate '_Ventanas'}" Padding="10,6">
+            <MenuItem Header="{loc:Translate 'Campeón'}" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=ChampionPanel}"/>
+            <MenuItem Header="{loc:Translate 'Miniguía'}" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=GuidePanel}"/>
+            <MenuItem Header="{loc:Translate 'Entrenamiento'}" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=TrainingPanel}"/>
+            <MenuItem Header="{loc:Translate 'Campeones'}" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=ChampionsPanel}"/>
+            <MenuItem Header="{loc:Translate 'Sesión y partida'}" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=SessionPanel}"/>
+            <MenuItem Header="{loc:Translate 'Recomendación de campeón'}" IsCheckable="True" IsChecked="{Binding IsOpen, ElementName=RecommendationPanel}"/>
             <Separator/>
-            <MenuItem Header="Restablecer disposición" Click="OnResetLayout"/>
+            <MenuItem Header="{loc:Translate 'Restablecer disposición'}" Click="OnResetLayout"/>
           </MenuItem>
         </Menu>
       </DockPanel>
@@ -91,38 +92,40 @@
     <Rectangle Grid.Row="1" Fill="{StaticResource HexPatternBrush}" IsHitTestVisible="False"/>
     <Canvas x:Name="Workspace" Grid.Row="1" ClipToBounds="True" Background="Transparent" SizeChanged="OnWorkspaceSizeChanged">
 
-      <controls:FloatingPanel x:Name="ChampionPanel" Title="Campeón" Canvas.Left="8" Canvas.Top="8" Width="270" Height="400">
+      <controls:FloatingPanel x:Name="ChampionPanel" Title="{loc:Translate 'Campeón'}" Canvas.Left="8" Canvas.Top="8" Width="270" Height="400">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="0,0,8,0">
-            <TextBlock Text="CAMPEÓN ELEGIDO" Style="{StaticResource Caption}"/>
-            <ComboBox ItemsSource="{Binding Champions}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedChampion}" AutomationProperties.Name="Campeón elegido"/>
-            <TextBlock Text="TU CAMPEÓN EN PARTIDA" Style="{StaticResource Caption}"/>
-            <TextBlock Text="{Binding OwnChampion}" FontFamily="{StaticResource DisplayFont}" FontSize="26" FontWeight="Bold" Margin="0,2,0,0"
+            <TextBlock Text="{loc:Translate 'CAMPEÓN ELEGIDO'}" Style="{StaticResource Caption}"/>
+            <ComboBox ItemsSource="{Binding Champions}" SelectedItem="{Binding SelectedChampion}" AutomationProperties.Name="{loc:Translate 'Campeón elegido'}">
+              <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{loc:LocalizedBinding Name}"/></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Text="{loc:Translate 'TU CAMPEÓN EN PARTIDA'}" Style="{StaticResource Caption}"/>
+            <TextBlock Text="{loc:LocalizedBinding OwnChampion}" FontFamily="{StaticResource DisplayFont}" FontSize="26" FontWeight="Bold" Margin="0,2,0,0"
                        Foreground="{StaticResource GoldTextBrush}"/>
-            <TextBlock Text="{Binding GamePhase}" Style="{StaticResource Label}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,10"/>
+            <TextBlock Text="{loc:LocalizedBinding GamePhase}" Style="{StaticResource Label}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,10"/>
             <UniformGrid Columns="3" Margin="0,0,-6,8">
               <Border Style="{StaticResource StatTile}"><StackPanel>
-                <TextBlock Text="NIVEL" Style="{StaticResource Caption}"/>
+                <TextBlock Text="{loc:Translate 'NIVEL'}" Style="{StaticResource Caption}"/>
                 <TextBlock x:Name="OwnLevelValue" Text="{Binding OwnLevel}" Style="{StaticResource StatNumber}" FontSize="22" Foreground="{StaticResource Blue2Brush}"/>
               </StackPanel></Border>
               <Border Style="{StaticResource StatTile}"><StackPanel>
-                <TextBlock Text="VIDA" Style="{StaticResource Caption}"/>
+                <TextBlock Text="{loc:Translate 'VIDA'}" Style="{StaticResource Caption}"/>
                 <TextBlock x:Name="OwnHealthValue" Text="{Binding OwnHealth}" Style="{StaticResource StatNumber}" Foreground="{Binding OwnHealthColor}"/>
               </StackPanel></Border>
               <Border Style="{StaticResource StatTile}"><StackPanel>
-                <TextBlock Text="ORO" Style="{StaticResource Caption}"/>
+                <TextBlock Text="{loc:Translate 'ORO'}" Style="{StaticResource Caption}"/>
                 <TextBlock x:Name="OwnGoldValue" Text="{Binding OwnGold}" Style="{StaticResource StatNumber}" Foreground="{StaticResource Gold3Brush}"/>
               </StackPanel></Border>
             </UniformGrid>
             <ProgressBar Style="{StaticResource HealthBar}" Value="{Binding OwnHealthRatio, Mode=OneWay}" Foreground="{Binding OwnHealthColor}"
-                         Margin="0,0,0,10" AutomationProperties.Name="Barra de vida"/>
-            <Expander x:Name="OwnAttributes" Header="Tus atributos" IsExpanded="True">
+                         Margin="0,0,0,10" AutomationProperties.Name="{loc:Translate 'Barra de vida'}"/>
+            <Expander x:Name="OwnAttributes" Header="{loc:Translate 'Tus atributos'}" IsExpanded="True">
               <ItemsControl ItemsSource="{Binding ApiFields}">
                 <ItemsControl.ItemTemplate><DataTemplate>
                   <Border BorderBrush="{StaticResource Grey3Brush}" BorderThickness="0,0,0,1" Padding="0,5">
                     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                      <TextBlock Text="{Binding Name}" Style="{StaticResource Label}" Margin="0,0,8,0"/>
-                      <TextBlock Grid.Column="1" Text="{Binding Value}" Style="{StaticResource StatValue}"/>
+                      <TextBlock Text="{loc:LocalizedBinding Name}" Style="{StaticResource Label}" Margin="0,0,8,0"/>
+                      <TextBlock Grid.Column="1" Text="{loc:LocalizedBinding Value}" Style="{StaticResource StatValue}"/>
                     </Grid>
                   </Border>
                 </DataTemplate></ItemsControl.ItemTemplate>
@@ -132,14 +135,14 @@
         </ScrollViewer>
       </controls:FloatingPanel>
 
-      <controls:FloatingPanel x:Name="GuidePanel" Title="Miniguía" Canvas.Left="8" Canvas.Top="416" Width="320" Height="240" MinWidth="240" MinHeight="160">
+      <controls:FloatingPanel x:Name="GuidePanel" Title="{loc:Translate 'Miniguía'}" Canvas.Left="8" Canvas.Top="416" Width="320" Height="240" MinWidth="240" MinHeight="160">
         <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Text="{Binding LaneOpponent}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+          <TextBlock DockPanel.Dock="Top" Text="{loc:LocalizedBinding LaneOpponent}" Style="{StaticResource Caption}" TextWrapping="Wrap" Margin="0,0,0,8"/>
           <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <Expander x:Name="MiniGuidePanel" Header="Estrategia del campeón" IsExpanded="True">
+            <Expander x:Name="MiniGuidePanel" Header="{loc:Translate 'Estrategia del campeón'}" IsExpanded="True">
             <Grid>
               <TextBlock Text="{Binding MiniGuide}" FontSize="15" LineHeight="22" Margin="0,6,8,8" TextWrapping="Wrap"/>
-              <TextBlock Text="La miniguía aparecerá al detectar la partida." Style="{StaticResource Label}" FontStyle="Italic" Margin="0,6,8,8" TextWrapping="Wrap">
+              <TextBlock Text="{loc:Translate 'La miniguía aparecerá al detectar la partida.'}" Style="{StaticResource Label}" FontStyle="Italic" Margin="0,6,8,8" TextWrapping="Wrap">
                 <TextBlock.Visibility><Binding Path="MiniGuide" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
               </TextBlock>
             </Grid>
@@ -148,21 +151,21 @@
         </DockPanel>
       </controls:FloatingPanel>
 
-      <controls:FloatingPanel x:Name="TrainingPanel" Title="Entrenamiento" Canvas.Left="346" Canvas.Top="8" Width="440" Height="400">
+      <controls:FloatingPanel x:Name="TrainingPanel" Title="{loc:Translate 'Entrenamiento'}" Canvas.Left="346" Canvas.Top="8" Width="440" Height="400">
         <DockPanel>
           <DockPanel DockPanel.Dock="Top">
             <Path Data="M4,0 L8,4 L4,8 L0,4 Z" Fill="{StaticResource Blue2Brush}" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"/>
-            <TextBlock Text="{Binding AdviceState}" Style="{StaticResource Label}" Foreground="{StaticResource Blue1Brush}"/>
+            <TextBlock Text="{loc:LocalizedBinding AdviceState}" Style="{StaticResource Label}" Foreground="{StaticResource Blue1Brush}"/>
           </DockPanel>
-          <TextBlock DockPanel.Dock="Bottom" Text="{Binding AgeLabel}" Style="{StaticResource Label}" MinHeight="22"/>
-          <ScrollViewer x:Name="AdviceHistoryScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,8" AutomationProperties.Name="Historial de consejos">
+          <TextBlock DockPanel.Dock="Bottom" Text="{loc:LocalizedBinding AgeLabel}" Style="{StaticResource Label}" MinHeight="22"/>
+          <ScrollViewer x:Name="AdviceHistoryScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,8,0,8" AutomationProperties.Name="{loc:Translate 'Historial de consejos'}">
             <ItemsControl ItemsSource="{Binding Messages}" SizeChanged="OnHistorySizeChanged">
               <ItemsControl.ItemTemplate><DataTemplate>
                 <Border x:Name="Item" BorderBrush="{StaticResource Grey3Brush}" BorderThickness="0,0,0,1" Padding="0,12,0,16" Margin="0,0,10,0">
                   <StackPanel>
                     <DockPanel Margin="0,0,0,8">
                       <TextBlock Text="{Binding TimeLabel}" Style="{StaticResource Label}" DockPanel.Dock="Right"/>
-                      <TextBlock Text="{Binding State, Converter={StaticResource UpperCase}}" Style="{StaticResource Caption}" Foreground="{StaticResource Blue2Brush}"/>
+                      <TextBlock Text="{loc:LocalizedBinding Path=State, UpperCase=True}" Style="{StaticResource Caption}" Foreground="{StaticResource Blue2Brush}"/>
                     </DockPanel>
                     <TextBlock Text="{Binding Text}" Style="{StaticResource AdviceText}"/>
                   </StackPanel>
@@ -180,98 +183,98 @@
         </DockPanel>
       </controls:FloatingPanel>
 
-      <controls:FloatingPanel x:Name="SessionPanel" Title="Sesión, partida y depuración" Canvas.Left="794" Canvas.Top="8" Width="300" Height="400" MinWidth="280">
+      <controls:FloatingPanel x:Name="SessionPanel" Title="{loc:Translate 'Sesión, partida y depuración'}" Canvas.Left="794" Canvas.Top="8" Width="300" Height="400" MinWidth="280">
         <DockPanel>
           <WrapPanel DockPanel.Dock="Top">
-            <Button Command="{Binding StartCommand}" Style="{StaticResource Primary}" ToolTip="Iniciar sesión"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="Play" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="INICIAR"/></StackPanel></Button>
-            <Button Command="{Binding StopCommand}" ToolTip="Pausar y cancelar solicitudes"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="Pause" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="PAUSAR"/></StackPanel></Button>
+            <Button Command="{Binding StartCommand}" Style="{StaticResource Primary}" ToolTip="{loc:Translate 'Iniciar sesión'}"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="Play" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="{loc:Translate 'INICIAR'}"/></StackPanel></Button>
+            <Button Command="{Binding StopCommand}" ToolTip="{loc:Translate 'Pausar y cancelar solicitudes'}"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="Pause" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="{loc:Translate 'PAUSAR'}"/></StackPanel></Button>
           </WrapPanel>
-          <TextBlock DockPanel.Dock="Top" Text="{Binding StateLabel}" Style="{StaticResource Label}" Margin="0,0,0,6"/>
+          <TextBlock DockPanel.Dock="Top" Text="{loc:LocalizedBinding StateLabel}" Style="{StaticResource Label}" Margin="0,0,0,6"/>
           <TabControl x:Name="SessionTabs">
             <TabControl.Resources>
               <Style TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}"><Setter Property="AutoGenerateColumns" Value="False"/><Setter Property="IsReadOnly" Value="True"/><Setter Property="CanUserAddRows" Value="False"/><Setter Property="HeadersVisibility" Value="Column"/><Setter Property="RowHeight" Value="32"/><Setter Property="BorderThickness" Value="0"/></Style>
             </TabControl.Resources>
-            <TabItem Header="Sesión">
+            <TabItem Header="{loc:Translate 'Sesión'}">
               <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="4,10,4,4">
                 <StackPanel>
-                  <CheckBox IsChecked="{Binding AutomaticStartEnabled}" IsEnabled="{Binding CanChangeMode}"><TextBlock Text="Inicio automático al detectar partida"/></CheckBox>
-                  <CheckBox IsChecked="{Binding ContinuousSending}" IsEnabled="{Binding CanChangeMode}"><TextBlock Text="Envío continuo · sin límite de solicitudes"/></CheckBox>
+                  <CheckBox IsChecked="{Binding AutomaticStartEnabled}" IsEnabled="{Binding CanChangeMode}"><TextBlock Text="{loc:Translate 'Inicio automático al detectar partida'}"/></CheckBox>
+                  <CheckBox IsChecked="{Binding ContinuousSending}" IsEnabled="{Binding CanChangeMode}"><TextBlock Text="{loc:Translate 'Envío continuo · sin límite de solicitudes'}"/></CheckBox>
                   <CheckBox x:Name="AllowUnverifiedBotOpponentsForDebuggingCheckBox"
                             IsChecked="{Binding AllowUnverifiedBotOpponentsForDebugging}"
                             IsEnabled="{Binding CanChangeMode}" Margin="0,8,0,0">
-                    <TextBlock Text="Depuración: omitir verificación de bots" TextWrapping="Wrap"/>
+                    <TextBlock Text="{loc:Translate 'Depuración: omitir verificación de bots'}" TextWrapping="Wrap"/>
                   </CheckBox>
-                  <TextBlock Text="Puede permitir sesiones PvP. Úsalo solo para pruebas controladas."
+                  <TextBlock Text="{loc:Translate 'Puede permitir sesiones PvP. Úsalo solo para pruebas controladas.'}"
                              Style="{StaticResource Label}" Foreground="{StaticResource Gold2Brush}"
                              TextWrapping="Wrap" Margin="22,0,0,10"/>
-                  <TextBlock Text="MODELO" Style="{StaticResource Caption}"/>
+                  <TextBlock Text="{loc:Translate 'MODELO'}" Style="{StaticResource Caption}"/>
                   <TextBlock Text="{Binding ModelName}" Margin="0,2,0,2" FontFamily="{StaticResource NumberFont}"/>
-                  <TextBlock Text="{Binding ModelStatus}" Style="{StaticResource Label}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,14"/>
-                  <TextBlock Margin="0,0,0,14"><Run Text="Solicitudes de sesión: " Foreground="{StaticResource TextSecondaryBrush}"/><Run Text="{Binding Requests, Mode=OneWay}" FontFamily="{StaticResource NumberFont}" FontWeight="Bold" Foreground="{StaticResource Gold2Brush}"/></TextBlock>
-                  <CheckBox IsChecked="{Binding VoiceEnabled}" IsEnabled="{Binding HasSpanishVoice}" Content="Autoplay de voz en español"/>
-                  <ComboBox ItemsSource="{Binding Voices}" SelectedItem="{Binding SelectedVoice}" AutomationProperties.Name="Voz española"/>
+                  <TextBlock Text="{loc:LocalizedBinding ModelStatus}" Style="{StaticResource Label}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,14"/>
+                  <TextBlock Margin="0,0,0,14"><Run Text="{loc:Translate 'Solicitudes de sesión: '}" Foreground="{StaticResource TextSecondaryBrush}"/><Run Text="{Binding Requests, Mode=OneWay}" FontFamily="{StaticResource NumberFont}" FontWeight="Bold" Foreground="{StaticResource Gold2Brush}"/></TextBlock>
+                  <CheckBox IsChecked="{Binding VoiceEnabled}" IsEnabled="{Binding HasVoice}" Content="{loc:Translate 'Autoplay de voz en español'}"/>
+                  <ComboBox ItemsSource="{Binding Voices}" SelectedItem="{Binding SelectedVoice}" AutomationProperties.Name="{loc:Translate 'Voz española'}"/>
                   <DockPanel>
                     <TextBlock DockPanel.Dock="Right" Text="{Binding Volume}" FontFamily="{StaticResource NumberFont}" Foreground="{StaticResource Gold2Brush}"/>
-                    <TextBlock Text="VOLUMEN" Style="{StaticResource Caption}"/>
+                    <TextBlock Text="{loc:Translate 'VOLUMEN'}" Style="{StaticResource Caption}"/>
                   </DockPanel>
-                  <Slider Minimum="0" Maximum="100" Value="{Binding Volume}" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,6,0,8" AutomationProperties.Name="Volumen"/>
-                  <TextBlock Text="{Binding VoiceStatus}" Style="{StaticResource Label}"/>
+                  <Slider Minimum="0" Maximum="100" Value="{Binding Volume}" TickFrequency="5" IsSnapToTickEnabled="True" Margin="0,6,0,8" AutomationProperties.Name="{loc:Translate 'Volumen'}"/>
+                  <TextBlock Text="{loc:LocalizedBinding VoiceStatus}" Style="{StaticResource Label}"/>
                 </StackPanel>
               </ScrollViewer>
             </TabItem>
-            <TabItem Header="Partida">
+            <TabItem Header="{loc:Translate 'Partida'}">
               <DockPanel Margin="4,10,4,4">
-                <TextBlock DockPanel.Dock="Top" Text="{Binding ApiStatus}" Foreground="{StaticResource Blue1Brush}" Margin="0,0,0,4"/>
-                <TextBlock DockPanel.Dock="Top" Text="{Binding ApiLastUpdate, StringFormat=Última actualización: {0}}" Style="{StaticResource Label}" Margin="0,0,0,10"/>
-                <DataGrid ItemsSource="{Binding ApiFields}" AutomationProperties.Name="Información recuperada de LoL">
-                  <DataGrid.Columns><DataGridTextColumn Header="Dato" Binding="{Binding Name}" Width="Auto" MinWidth="110"/><DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="*"/></DataGrid.Columns>
+                <TextBlock DockPanel.Dock="Top" Text="{loc:LocalizedBinding ApiStatus}" Foreground="{StaticResource Blue1Brush}" Margin="0,0,0,4"/>
+                <TextBlock DockPanel.Dock="Top" Text="{loc:LocalizedBinding ApiLastUpdateLabel}" Style="{StaticResource Label}" Margin="0,0,0,10"/>
+                <DataGrid ItemsSource="{Binding ApiFields}" AutomationProperties.Name="{loc:Translate 'Información recuperada de LoL'}">
+                  <DataGrid.Columns><DataGridTextColumn Header="{loc:Translate 'Dato'}" Binding="{loc:LocalizedBinding Name}" Width="Auto" MinWidth="110"/><DataGridTextColumn Header="{loc:Translate 'Valor'}" Binding="{loc:LocalizedBinding Value}" Width="*"/></DataGrid.Columns>
                 </DataGrid>
               </DockPanel>
             </TabItem>
-            <TabItem Header="Depuración">
+            <TabItem Header="{loc:Translate 'Depuración'}">
               <DockPanel Margin="4,10,4,4">
                 <DockPanel DockPanel.Dock="Top">
-                  <Button DockPanel.Dock="Right" Command="{Binding ClearDiagnosticsCommand}" ToolTip="Limpiar registros" MinHeight="32" Padding="10,6" Margin="0,0,0,8"><icons:PackIconMaterial Kind="DeleteOutline"/></Button>
-                  <TextBlock Text="CONSULTAS A LAS API" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
+                  <Button DockPanel.Dock="Right" Command="{Binding ClearDiagnosticsCommand}" ToolTip="{loc:Translate 'Limpiar registros'}" MinHeight="32" Padding="10,6" Margin="0,0,0,8"><icons:PackIconMaterial Kind="DeleteOutline"/></Button>
+                  <TextBlock Text="{loc:Translate 'CONSULTAS A LAS API'}" Style="{StaticResource SectionTitle}" VerticalAlignment="Center"/>
                 </DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                   <TextBlock Text="{Binding LocalSettingsPath}" Style="{StaticResource Label}"/>
                   <TextBlock Text="{Binding ModelReply}" Margin="0,6,0,0" FontSize="13"/>
                 </StackPanel>
                 <TabControl>
-                  <TabItem Header="LoL"><DataGrid ItemsSource="{Binding LolDiagnostics}" AutomationProperties.Name="Consultas a la API de LoL"><DataGrid.Columns>
-                    <DataGridTextColumn Header="Hora" Binding="{Binding TimeLabel}" Width="74"/><DataGridTextColumn Header="Método" Binding="{Binding Method}" Width="70"/><DataGridTextColumn Header="Ruta" Binding="{Binding Path}" Width="*" MinWidth="160"/><DataGridTextColumn Header="HTTP" Binding="{Binding StatusLabel}" Width="60"/><DataGridTextColumn Header="Tiempo" Binding="{Binding DurationLabel}" Width="85"/><DataGridTextColumn Header="Resultado" Binding="{Binding Result}" Width="180"/>
+                  <TabItem Header="LoL"><DataGrid ItemsSource="{Binding LolDiagnostics}" AutomationProperties.Name="{loc:Translate 'Consultas a la API de LoL'}"><DataGrid.Columns>
+                    <DataGridTextColumn Header="{loc:Translate 'Hora'}" Binding="{Binding TimeLabel}" Width="74"/><DataGridTextColumn Header="{loc:Translate 'Método'}" Binding="{Binding Method}" Width="70"/><DataGridTextColumn Header="{loc:Translate 'Ruta'}" Binding="{Binding Path}" Width="*" MinWidth="160"/><DataGridTextColumn Header="HTTP" Binding="{Binding StatusLabel}" Width="60"/><DataGridTextColumn Header="{loc:Translate 'Tiempo'}" Binding="{Binding DurationLabel}" Width="85"/><DataGridTextColumn Header="{loc:Translate 'Resultado'}" Binding="{loc:LocalizedBinding Result}" Width="180"/>
                   </DataGrid.Columns></DataGrid></TabItem>
-                  <TabItem Header="Azure OpenAI"><DataGrid ItemsSource="{Binding ModelDiagnostics}" AutomationProperties.Name="Consultas a la API de Azure OpenAI"><DataGrid.Columns>
-                    <DataGridTextColumn Header="Hora" Binding="{Binding TimeLabel}" Width="74"/><DataGridTextColumn Header="Método" Binding="{Binding Method}" Width="70"/><DataGridTextColumn Header="Ruta" Binding="{Binding Path}" Width="*" MinWidth="160"/><DataGridTextColumn Header="HTTP" Binding="{Binding StatusLabel}" Width="60"/><DataGridTextColumn Header="Tiempo" Binding="{Binding DurationLabel}" Width="85"/><DataGridTextColumn Header="Resultado" Binding="{Binding Result}" Width="180"/>
+                  <TabItem Header="Azure OpenAI"><DataGrid ItemsSource="{Binding ModelDiagnostics}" AutomationProperties.Name="{loc:Translate 'Consultas a la API de Azure OpenAI'}"><DataGrid.Columns>
+                    <DataGridTextColumn Header="{loc:Translate 'Hora'}" Binding="{Binding TimeLabel}" Width="74"/><DataGridTextColumn Header="{loc:Translate 'Método'}" Binding="{Binding Method}" Width="70"/><DataGridTextColumn Header="{loc:Translate 'Ruta'}" Binding="{Binding Path}" Width="*" MinWidth="160"/><DataGridTextColumn Header="HTTP" Binding="{Binding StatusLabel}" Width="60"/><DataGridTextColumn Header="{loc:Translate 'Tiempo'}" Binding="{Binding DurationLabel}" Width="85"/><DataGridTextColumn Header="{loc:Translate 'Resultado'}" Binding="{loc:LocalizedBinding Result}" Width="180"/>
                   </DataGrid.Columns></DataGrid></TabItem>
                 </TabControl>
               </DockPanel>
             </TabItem>
-            <TabItem Header="Captura">
+            <TabItem Header="{loc:Translate 'Captura'}">
               <DockPanel Margin="4,10,4,4">
-                <TextBlock DockPanel.Dock="Top" Text="{Binding PayloadLabel, StringFormat=Imágenes actuales (sin historial): {0}}" Style="{StaticResource Label}"/>
-                <TextBlock DockPanel.Dock="Top" Text="{Binding LatencyLabel, StringFormat=Frase completa: {0}}" Style="{StaticResource Label}" Margin="0,4,0,8"/>
+                <TextBlock DockPanel.Dock="Top" Text="{loc:LocalizedBinding PayloadDisplay}" Style="{StaticResource Label}"/>
+                <TextBlock DockPanel.Dock="Top" Text="{loc:LocalizedBinding LatencyDisplay}" Style="{StaticResource Label}" Margin="0,4,0,8"/>
                 <Border BorderBrush="{StaticResource Gold4Brush}" BorderThickness="1" Background="{StaticResource VoidBrush}" Padding="2">
                   <Grid>
-                    <TextBlock Text="Sin captura activa" Style="{StaticResource Label}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Translate 'Sin captura activa'}" Style="{StaticResource Label}" HorizontalAlignment="Center" VerticalAlignment="Center">
                       <TextBlock.Visibility><Binding Path="Scene" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
                     </TextBlock>
-                    <Image Source="{Binding Scene}" Stretch="Uniform" AutomationProperties.Name="Captura de pantalla enviada"/>
+                    <Image Source="{Binding Scene}" Stretch="Uniform" AutomationProperties.Name="{loc:Translate 'Captura de pantalla enviada'}"/>
                   </Grid>
                 </Border>
               </DockPanel>
             </TabItem>
-            <TabItem Header="Minimapa">
+            <TabItem Header="{loc:Translate 'Minimapa'}">
               <DockPanel Margin="4,10,4,4">
-                <TextBlock DockPanel.Dock="Top" Text="Recorte enviado sin pérdida, a resolución nativa."
+                <TextBlock DockPanel.Dock="Top" Text="{loc:Translate 'Recorte enviado sin pérdida, a resolución nativa.'}"
                            Style="{StaticResource Label}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                 <Border BorderBrush="{StaticResource Gold4Brush}" BorderThickness="1" Background="{StaticResource VoidBrush}" Padding="2">
                   <Grid>
-                    <TextBlock Text="Sin minimapa enviado" Style="{StaticResource Label}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="{loc:Translate 'Sin minimapa enviado'}" Style="{StaticResource Label}" HorizontalAlignment="Center" VerticalAlignment="Center">
                       <TextBlock.Visibility><Binding Path="MinimapScene" Converter="{StaticResource EmptyVisibility}"/></TextBlock.Visibility>
                     </TextBlock>
-                    <Image Source="{Binding MinimapScene}" Stretch="Uniform" AutomationProperties.Name="Recorte del minimapa enviado"/>
+                    <Image Source="{Binding MinimapScene}" Stretch="Uniform" AutomationProperties.Name="{loc:Translate 'Recorte del minimapa enviado'}"/>
                   </Grid>
                 </Border>
               </DockPanel>
@@ -280,27 +283,25 @@
         </DockPanel>
       </controls:FloatingPanel>
 
-      <controls:FloatingPanel x:Name="ChampionsPanel" Title="Campeones" Canvas.Left="8" Canvas.Top="416" Width="1086" Height="240" MinWidth="320">
+      <controls:FloatingPanel x:Name="ChampionsPanel" Title="{loc:Translate 'Campeones'}" Canvas.Left="8" Canvas.Top="416" Width="1086" Height="240" MinWidth="320">
         <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Style="{StaticResource Label}" Margin="0,0,0,8">
-            <Run Text="{Binding RosterStatus, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding ApiLastUpdate, Mode=OneWay, StringFormat=Actualizado: {0}}"/>
-          </TextBlock>
-          <ScrollViewer x:Name="PlayersScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Marcador de todos los campeones">
+          <TextBlock DockPanel.Dock="Top" Text="{loc:LocalizedBinding RosterUpdateLabel}" Style="{StaticResource Label}" Margin="0,0,0,8"/>
+          <ScrollViewer x:Name="PlayersScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="{loc:Translate 'Marcador de todos los campeones'}">
             <ItemsControl ItemsSource="{Binding Players}">
               <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
               <ItemsControl.ItemTemplate><DataTemplate>
                 <Border x:Name="Column" Width="190" Margin="0,0,10,8" Padding="12,10" BorderThickness="1,3,1,1"
                         BorderBrush="{StaticResource Blue2Brush}" Background="{StaticResource CardBackgroundBrush}">
                   <StackPanel ToolTip="{Binding Details}">
-                    <TextBlock Text="{Binding Heading}" FontFamily="{StaticResource DisplayFont}" FontWeight="SemiBold" FontSize="16" Foreground="{StaticResource Blue1Brush}">
+                    <TextBlock Text="{loc:LocalizedBinding Heading}" FontFamily="{StaticResource DisplayFont}" FontWeight="SemiBold" FontSize="16" Foreground="{StaticResource Blue1Brush}">
                       <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers>
                         <DataTrigger Binding="{Binding Player.IsOwn}" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold1Brush}"/></DataTrigger>
                         <DataTrigger Binding="{Binding Player.Relation}" Value="Rival"><Setter Property="Foreground" Value="{StaticResource RedBrush}"/></DataTrigger>
                       </Style.Triggers></Style></TextBlock.Style>
                     </TextBlock>
-                    <TextBlock FontSize="14" Margin="0,4,0,4"><Run Text="Nv. " Foreground="{StaticResource TextSecondaryBrush}"/><Run Text="{Binding Player.Level, Mode=OneWay, TargetNullValue=-}" FontFamily="{StaticResource NumberFont}" FontWeight="Bold" Foreground="{StaticResource Blue2Brush}"/><Run Text="{Binding ScoreDetails, Mode=OneWay}"/></TextBlock>
-                    <TextBlock Text="{Binding Details}" Style="{StaticResource Label}" Margin="0,0,0,4"/>
-                    <TextBlock Text="{Binding Items}" Style="{StaticResource Label}"/>
+                    <TextBlock Text="{loc:LocalizedBinding Scores}" FontSize="14" Margin="0,4,0,4"/>
+                    <TextBlock Text="{loc:LocalizedBinding Details}" Style="{StaticResource Label}" Margin="0,0,0,4"/>
+                    <TextBlock Text="{loc:LocalizedBinding Items}" Style="{StaticResource Label}"/>
                   </StackPanel>
                 </Border>
                 <DataTemplate.Triggers>
@@ -313,24 +314,24 @@
         </DockPanel>
       </controls:FloatingPanel>
 
-      <controls:FloatingPanel x:Name="RecommendationPanel" Title="Recomendación de campeón y posición" Canvas.Left="180" Canvas.Top="30" Width="680" Height="560" MinWidth="320">
+      <controls:FloatingPanel x:Name="RecommendationPanel" Title="{loc:Translate 'Recomendación de campeón y posición'}" Canvas.Left="180" Canvas.Top="30" Width="680" Height="560" MinWidth="320">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <StackPanel Margin="0,0,8,0">
             <StackPanel Style="{StaticResource QuizPanel}">
               <TextBlock Text="{Binding QuestionProgress, Converter={StaticResource UpperCase}}" Style="{StaticResource Caption}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,10"/>
-              <TextBlock Text="{Binding CurrentQuestion.Question.Text}" Style="{StaticResource Heading}"/>
+              <TextBlock Text="{loc:LocalizedBinding Path=CurrentQuestion.Question.Text}" Style="{StaticResource Heading}"/>
               <ListBox ItemsSource="{Binding CurrentQuestion.Question.Options}" SelectedIndex="{Binding CurrentQuestion.SelectedIndex, Mode=TwoWay}"
-                       AutomationProperties.Name="Respuestas del cuestionario" ItemContainerStyle="{StaticResource QuizOption}" Margin="0,8,0,20">
-                <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Text}"/></DataTemplate></ListBox.ItemTemplate>
+                       AutomationProperties.Name="{loc:Translate 'Respuestas del cuestionario'}" ItemContainerStyle="{StaticResource QuizOption}" Margin="0,8,0,20">
+                <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{loc:LocalizedBinding Text}"/></DataTemplate></ListBox.ItemTemplate>
               </ListBox>
               <WrapPanel>
-                <Button Command="{Binding PreviousQuestionCommand}" ToolTip="Pregunta anterior"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="ChevronLeft" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="ANTERIOR"/></StackPanel></Button>
-                <Button Command="{Binding NextQuestionCommand}" Style="{StaticResource Primary}"><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding NextLabel, Converter={StaticResource UpperCase}}"/><icons:PackIconMaterial Kind="ChevronRight" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
+                <Button Command="{Binding PreviousQuestionCommand}" ToolTip="{loc:Translate 'Pregunta anterior'}"><StackPanel Orientation="Horizontal"><icons:PackIconMaterial Kind="ChevronLeft" Margin="0,0,8,0" VerticalAlignment="Center"/><TextBlock Text="{loc:Translate 'ANTERIOR'}"/></StackPanel></Button>
+                <Button Command="{Binding NextQuestionCommand}" Style="{StaticResource Primary}"><StackPanel Orientation="Horizontal"><TextBlock Text="{loc:LocalizedBinding Path=NextLabel, UpperCase=True}"/><icons:PackIconMaterial Kind="ChevronRight" Margin="8,0,0,0" VerticalAlignment="Center"/></StackPanel></Button>
               </WrapPanel>
             </StackPanel>
             <StackPanel Visibility="{Binding ShowResults, Converter={StaticResource BoolVisibility}}">
-              <TextBlock Text="Tu punto de partida" Style="{StaticResource Heading}"/>
-              <TextBlock Text="{Binding ResultSummary}" LineHeight="22" Margin="0,0,0,18"/>
+              <TextBlock Text="{loc:Translate 'Tu punto de partida'}" Style="{StaticResource Heading}"/>
+              <TextBlock Text="{loc:LocalizedBinding ResultSummary}" LineHeight="22" Margin="0,0,0,18"/>
               <ItemsControl ItemsSource="{Binding Recommendations}" Margin="0,0,0,12">
                 <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate><DataTemplate>
@@ -340,15 +341,15 @@
                         <Ellipse Fill="{StaticResource VoidBrush}" Stroke="{StaticResource GoldMetalBrush}" StrokeThickness="3"/>
                         <Ellipse Margin="5"><Ellipse.Fill><ImageBrush ImageSource="{Binding Portrait}" Stretch="UniformToFill"/></Ellipse.Fill></Ellipse>
                       </Grid>
-                      <TextBlock Grid.Row="1" Text="{Binding Choice.Name}" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="21" Foreground="{StaticResource GoldTextBrush}"/>
-                      <TextBlock Grid.Row="2" Text="{Binding Role, Converter={StaticResource UpperCase}}" Style="{StaticResource Caption}" Foreground="{StaticResource Blue2Brush}" Margin="0,2,0,10"/>
-                      <StackPanel Grid.Row="3"><TextBlock Text="{Binding Choice.Reason}" FontSize="14"/><TextBlock Text="{Binding Choice.Difficulty, StringFormat=Dificultad: {0}}" Style="{StaticResource Label}" Margin="0,10,0,12"/></StackPanel>
-                      <Button Grid.Row="4" Content="ELEGIR" Margin="0" Command="{Binding DataContext.ChooseChampionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                      <TextBlock Grid.Row="1" Text="{loc:LocalizedBinding Path=Choice.Name}" FontFamily="{StaticResource DisplayFont}" FontWeight="Bold" FontSize="21" Foreground="{StaticResource GoldTextBrush}"/>
+                      <TextBlock Grid.Row="2" Text="{loc:LocalizedBinding Path=Role, UpperCase=True}" Style="{StaticResource Caption}" Foreground="{StaticResource Blue2Brush}" Margin="0,2,0,10"/>
+                      <StackPanel Grid.Row="3"><TextBlock Text="{loc:LocalizedBinding Path=Choice.Reason}" FontSize="14"/><TextBlock Text="{loc:LocalizedBinding DifficultyLabel}" Style="{StaticResource Label}" Margin="0,10,0,12"/></StackPanel>
+                      <Button Grid.Row="4" Content="{loc:Translate 'ELEGIR'}" Margin="0" Command="{Binding DataContext.ChooseChampionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
                     </Grid>
                   </Border>
                 </DataTemplate></ItemsControl.ItemTemplate>
               </ItemsControl>
-              <WrapPanel><Button Content="USAR ESTE PERFIL" Style="{StaticResource Primary}" Command="{Binding SaveProfileCommand}"/><Button Content="REPETIR CUESTIONARIO" Command="{Binding RepeatQuizCommand}"/></WrapPanel>
+              <WrapPanel><Button Content="{loc:Translate 'USAR ESTE PERFIL'}" Style="{StaticResource Primary}" Command="{Binding SaveProfileCommand}"/><Button Content="{loc:Translate 'REPETIR CUESTIONARIO'}" Command="{Binding RepeatQuizCommand}"/></WrapPanel>
             </StackPanel>
           </StackPanel>
         </ScrollViewer>
@@ -357,8 +358,8 @@
 
     <!-- Footer -->
     <Border Grid.Row="2" Background="{StaticResource VoidBrush}" BorderBrush="{StaticResource Gold5Brush}" BorderThickness="0,1,0,0" Padding="20,8">
-      <StackPanel><TextBlock Text="{Binding LiveRestriction}" FontSize="13" Foreground="{StaticResource Gold3Brush}"/>
-        <TextBlock FontSize="11" Foreground="{StaticResource Grey15Brush}" Margin="0,4,0,0" Text="Rift Coach isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc."/>
+      <StackPanel><TextBlock Text="{loc:LocalizedBinding LiveRestriction}" FontSize="13" Foreground="{StaticResource Gold3Brush}"/>
+        <TextBlock FontSize="11" Foreground="{StaticResource Grey15Brush}" Margin="0,4,0,0" Text="{loc:Translate 'Rift Coach no cuenta con el respaldo de Riot Games ni refleja las opiniones de Riot Games ni de ninguna persona implicada oficialmente en producir o gestionar sus propiedades. Riot Games y todas las propiedades asociadas son marcas comerciales o marcas registradas de Riot Games, Inc.'}"/>
       </StackPanel>
     </Border>
   </Grid>
