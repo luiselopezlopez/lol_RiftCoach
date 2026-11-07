@@ -6,21 +6,24 @@ using System.Windows.Media.Imaging;
 
 namespace LoLCoach.Services;
 
-public sealed class DataDragonService(HttpClient? httpClient = null, string? cachePath = null) : IDisposable
+public sealed class DataDragonService(HttpClient? httpClient = null, string? cachePath = null, string language = "es") : IDisposable
 {
     private readonly HttpClient client = httpClient ?? new() { Timeout = TimeSpan.FromSeconds(8) };
     private readonly string cacheDirectory = cachePath ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LoLCoach", "catalog");
+    private readonly string locale = LocalizationManager.NormalizeLanguage(language) == "en" ? "en_US" : "es_ES";
     private string? version;
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(cacheDirectory);
-        var path = Path.Combine(cacheDirectory, "catalog.json");
+        var path = Path.Combine(cacheDirectory, $"catalog-{locale}.json");
+        var legacyPath = Path.Combine(cacheDirectory, "catalog.json");
+        if (locale == "es_ES" && !File.Exists(path) && File.Exists(legacyPath)) File.Copy(legacyPath, path);
         try
         {
             using var versions = JsonDocument.Parse(await client.GetStringAsync("https://ddragon.leagueoflegends.com/api/versions.json", cancellationToken));
             version = versions.RootElement[0].GetString() ?? throw new JsonException();
-            var json = await client.GetStringAsync($"https://ddragon.leagueoflegends.com/cdn/{Uri.EscapeDataString(version)}/data/es_ES/champion.json", cancellationToken);
+            var json = await client.GetStringAsync($"https://ddragon.leagueoflegends.com/cdn/{Uri.EscapeDataString(version)}/data/{locale}/champion.json", cancellationToken);
             using var catalog = JsonDocument.Parse(json);
             if (!catalog.RootElement.TryGetProperty("data", out _)) throw new JsonException();
             await File.WriteAllTextAsync(path, json, cancellationToken);
@@ -61,9 +64,11 @@ public sealed class DataDragonService(HttpClient? httpClient = null, string? cac
             || string.IsNullOrEmpty(patch) || patch.Any(character => !char.IsAsciiDigit(character) && character != '.'))
             throw new ArgumentException("Identificador de campeón o versión no válido.");
         Directory.CreateDirectory(cacheDirectory);
-        var path = Path.Combine(cacheDirectory, $"{patch}-{championId}-abilities.json");
+        var path = Path.Combine(cacheDirectory, $"{locale}-{patch}-{championId}-abilities.json");
+        var legacyPath = Path.Combine(cacheDirectory, $"{patch}-{championId}-abilities.json");
+        if (locale == "es_ES" && !File.Exists(path) && File.Exists(legacyPath)) File.Copy(legacyPath, path);
         var json = File.Exists(path) ? await File.ReadAllTextAsync(path, cancellationToken)
-            : await client.GetStringAsync($"https://ddragon.leagueoflegends.com/cdn/{patch}/data/es_ES/champion/{championId}.json", cancellationToken);
+            : await client.GetStringAsync($"https://ddragon.leagueoflegends.com/cdn/{patch}/data/{locale}/champion/{championId}.json", cancellationToken);
         using var document = JsonDocument.Parse(json);
         var champion = document.RootElement.GetProperty("data").GetProperty(championId);
         var passive = champion.GetProperty("passive");

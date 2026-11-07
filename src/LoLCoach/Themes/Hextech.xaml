@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:loc="clr-namespace:LoLCoach.Services"
                     xmlns:icons="http://metro.mahapps.com/winfx/xaml/iconpacks"
                     xmlns:controls="clr-namespace:LoLCoach.Controls">
   <!--
@@ -587,7 +588,7 @@
           <Grid.RowDefinitions><RowDefinition Height="36"/><RowDefinition Height="*"/></Grid.RowDefinitions>
           <Border Margin="1,1,1,0" Background="{StaticResource TitleBarBrush}">
             <Grid>
-              <Thumb x:Name="PART_TitleBar" Cursor="SizeAll" ToolTip="Arrastra para mover">
+              <Thumb x:Name="PART_TitleBar" Cursor="SizeAll" ToolTip="{loc:Translate 'Arrastra para mover'}">
                 <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
               </Thumb>
               <DockPanel Margin="14,0,44,0" VerticalAlignment="Center" IsHitTestVisible="False">
@@ -598,7 +599,7 @@
                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" VerticalAlignment="Center"/>
               </DockPanel>
               <Button x:Name="PART_Close" Style="{StaticResource PanelCloseButton}" HorizontalAlignment="Right" Width="28" Height="26" Margin="0,0,6,0"
-                      ToolTip="Cerrar ventana" AutomationProperties.Name="Cerrar ventana">
+                      ToolTip="{loc:Translate 'Cerrar ventana'}" AutomationProperties.Name="{loc:Translate 'Cerrar ventana'}">
                 <icons:PackIconMaterial Kind="Close" Width="11" Height="11"/>
               </Button>
             </Grid>
@@ -617,7 +618,7 @@
           <Thumb Grid.Row="1" Tag="BottomLeft" Width="12" Height="12" HorizontalAlignment="Left" VerticalAlignment="Bottom" Cursor="SizeNESW">
             <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
           </Thumb>
-          <Thumb Grid.Row="1" Tag="BottomRight" Width="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE" ToolTip="Redimensionar">
+          <Thumb Grid.Row="1" Tag="BottomRight" Width="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Bottom" Cursor="SizeNWSE" ToolTip="{loc:Translate 'Redimensionar'}">
             <Thumb.Template><ControlTemplate TargetType="Thumb">
               <Border Background="Transparent"><Path Data="M13,5 L5,13 M13,9 L9,13" Stroke="{StaticResource Gold4Brush}" StrokeThickness="1.2"/></Border>
             </ControlTemplate></Thumb.Template>

@@ -12,6 +12,7 @@ public sealed record AppSettings
 {
     public string Endpoint { get; init; } = "https://luisellmcontainer.openai.azure.com/openai/v1/";
     public string Deployment { get; init; } = "gpt-6-luna";
+    public string Language { get; init; } = "es";
     public int RequestLimit { get; init; } = 12;
     public PlayerProfile? Profile { get; init; }
     public bool AllowUnverifiedBotOpponentsForDebugging { get; init; }
@@ -49,6 +50,7 @@ public sealed class SettingsService
     {
         public string Endpoint { get; init; } = new AppSettings().Endpoint;
         public string Model { get; init; } = new AppSettings().Deployment;
+        public string Language { get; init; } = "es";
         public string? ApiKey { get; init; }
         public int RequestLimit { get; init; } = 12;
         public PlayerProfile? Profile { get; init; }
@@ -116,7 +118,8 @@ public sealed class SettingsService
 
     private AppSettings ToAppSettings(LocalSettings local) => new()
     {
-        Endpoint = local.Endpoint, Deployment = local.Model, RequestLimit = local.RequestLimit,
+        Endpoint = local.Endpoint, Deployment = local.Model, Language = LocalizationManager.NormalizeLanguage(local.Language),
+        RequestLimit = local.RequestLimit,
         Profile = local.Profile, AllowUnverifiedBotOpponentsForDebugging = local.AllowUnverifiedBotOpponentsForDebugging
     };
 
@@ -198,7 +201,7 @@ public sealed class SettingsService
         ValidateSettings(settings);
         var local = ReadLocalSettings();
         WriteLocalSettings(local with { Endpoint = settings.Endpoint, Model = settings.Deployment,
-            RequestLimit = settings.RequestLimit, Profile = settings.Profile,
+            Language = LocalizationManager.NormalizeLanguage(settings.Language), RequestLimit = settings.RequestLimit, Profile = settings.Profile,
             AllowUnverifiedBotOpponentsForDebugging = settings.AllowUnverifiedBotOpponentsForDebugging });
     }
 
@@ -211,7 +214,7 @@ public sealed class SettingsService
             throw new ArgumentException("El límite debe estar entre 1 y 100000 solicitudes.");
     }
 
-    public AppSettings SaveConnectionSettings(string endpoint, string model, int requestLimit, string? apiKey)
+    public AppSettings SaveConnectionSettings(string endpoint, string model, int requestLimit, string? apiKey, string? language = null)
     {
         var settings = new AppSettings { Endpoint = endpoint.Trim(), Deployment = model.Trim(), RequestLimit = requestLimit };
         ValidateSettings(settings);
@@ -219,7 +222,7 @@ public sealed class SettingsService
         var updated = local with
         {
             Endpoint = ValidateEndpoint(settings.Endpoint).AbsoluteUri, Model = settings.Deployment,
-            RequestLimit = settings.RequestLimit,
+            Language = LocalizationManager.NormalizeLanguage(language ?? local.Language), RequestLimit = settings.RequestLimit,
             ApiKey = apiKey is null ? local.ApiKey : string.IsNullOrWhiteSpace(apiKey) ? null : ProtectKey(apiKey)
         };
         WriteLocalSettings(updated);
@@ -337,6 +340,7 @@ public sealed class SettingsService
         var local = new LocalSettings
         {
             Endpoint = previous.Endpoint, Model = previous.Deployment, RequestLimit = previous.RequestLimit, Profile = previous.Profile,
+            Language = LocalizationManager.NormalizeLanguage(previous.Language),
             ApiKey = File.Exists(legacyKeyPath) ? ProtectedKeyPrefix + Convert.ToBase64String(File.ReadAllBytes(legacyKeyPath)) : null
         };
         WriteLocalSettings(local);

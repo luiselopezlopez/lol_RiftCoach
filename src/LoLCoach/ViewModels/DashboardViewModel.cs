@@ -22,6 +22,7 @@ public partial class ChampionViewModel(ChampionChoice choice) : ObservableObject
 {
     public ChampionChoice Choice { get; } = choice;
     public string Role => QuestionnaireService.RoleName(Choice.Role);
+    public string DifficultyLabel => $"Dificultad: {Choice.Difficulty}";
     [ObservableProperty] private ImageSource? portrait;
 }
 
@@ -91,7 +92,8 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             for (var index = 0; index < 8; index++) Questions[index].SelectedIndex = settings.Profile.Answers[index];
         foreach (var question in Questions)
             question.PropertyChanged += (_, _) => NextQuestionCommand.NotifyCanExecuteChanged();
-        selectedVoice = speech.Voices.FirstOrDefault(); voiceEnabled = HasSpanishVoice;
+        speech.SetLanguage(settings.Language);
+        selectedVoice = speech.Voices.FirstOrDefault(); voiceEnabled = HasVoice;
         timer = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Background, (_, _) => Tick(), Application.Current.Dispatcher);
         timer.Start();
     }
@@ -105,12 +107,16 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     public ObservableCollection<ApiDiagnostic> LolDiagnostics { get; } = [];
     public ObservableCollection<ApiDiagnostic> ModelDiagnostics { get; } = [];
     public string[] Voices => speech.Voices;
-    public bool HasSpanishVoice => Voices.Length > 0;
-    public string VoiceStatus => HasSpanishVoice ? "Voz española disponible" : speech.InitializationError ?? "No hay una voz española compatible instalada.";
+    public bool HasVoice => Voices.Length > 0;
+    public string VoiceStatus => HasVoice ? "Voz española disponible" : speech.InitializationError ?? "No hay una voz española compatible instalada.";
     public string LiveRestriction => ProductPolicy.LiveRestriction;
     public string LocalSettingsPath => store.LocalSettingsPath;
     public string CoachingPromptPath => store.CoachingPromptPath;
     public string ModelName => settings.Deployment;
+    public string ApiLastUpdateLabel => ApiLastUpdate == "Sin datos" ? ApiLastUpdate : $"Última actualización: {ApiLastUpdate}";
+    public string PayloadDisplay => $"Imágenes actuales (sin historial): {PayloadLabel}";
+    public string LatencyDisplay => $"Frase completa: {LatencyLabel}";
+    public string RosterUpdateLabel => $"{RosterStatus} · {ApiLastUpdateLabel}";
     public bool CanChangeMode => !IsBusy;
     public string ProfileLabel => SelectedChampion is null ? "Sin perfil" : $"{QuestionnaireService.RoleName(SelectedChampion.Role)} · {SelectedChampion.Name}";
     public QuestionViewModel CurrentQuestion => Questions[QuestionIndex];
@@ -167,6 +173,14 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         NextQuestionCommand.NotifyCanExecuteChanged(); PreviousQuestionCommand.NotifyCanExecuteChanged(); OnPropertyChanged(nameof(CanGoBack));
     }
     partial void OnSelectedChampionChanged(ChampionChoice? value) => OnPropertyChanged(nameof(ProfileLabel));
+    partial void OnApiLastUpdateChanged(string value)
+    {
+        OnPropertyChanged(nameof(ApiLastUpdateLabel));
+        OnPropertyChanged(nameof(RosterUpdateLabel));
+    }
+    partial void OnRosterStatusChanged(string value) => OnPropertyChanged(nameof(RosterUpdateLabel));
+    partial void OnPayloadLabelChanged(string value) => OnPropertyChanged(nameof(PayloadDisplay));
+    partial void OnLatencyLabelChanged(string value) => OnPropertyChanged(nameof(LatencyDisplay));
     partial void OnVoiceEnabledChanged(bool value) { if (!value) speech.Cancel(); }
     partial void OnAutomaticStartEnabledChanged(bool value)
     {
@@ -181,7 +195,8 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     {
         if (QuestionIndex < 7) { QuestionIndex++; return; }
         var result = QuestionnaireService.Evaluate(Questions.Select(question => question.SelectedIndex).ToArray());
-        ResultSummary = $"{QuestionnaireService.RoleName(result.Roles[0])}: {result.Reasons[0]}. Otra opción: {QuestionnaireService.RoleName(result.Roles[1])}.";
+        ResultSummary = $"{QuestionnaireService.RoleName(result.Roles[0])}: {result.Reasons[0]}. " +
+            $"Otra opción: {QuestionnaireService.RoleName(result.Roles[1])}.";
         Recommendations.Clear();
         foreach (var champion in result.Champions) Recommendations.Add(new(champion));
         SelectedChampion = result.Champions[0]; ShowResults = true;
@@ -246,10 +261,14 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         Status = "Versión del prompt restaurada. Pulsa Iniciar para aplicarla.";
     }
 
-    public void SaveConnectionSettings(string endpoint, string model, int requestLimit, string? apiKey)
+    public void SaveConnectionSettings(string endpoint, string model, int requestLimit, string? apiKey, string language)
     {
         if (IsBusy) throw new InvalidOperationException("Pausa la sesión antes de cambiar la configuración.");
-        settings = store.SaveConnectionSettings(endpoint, model, requestLimit, apiKey);
+        settings = store.SaveConnectionSettings(endpoint, model, requestLimit, apiKey, language);
+        LocalizationManager.Instance.SetLanguage(settings.Language);
+        speech.SetLanguage(settings.Language);
+        SelectedVoice = speech.Voices.FirstOrDefault();
+        OnPropertyChanged(nameof(Voices)); OnPropertyChanged(nameof(HasVoice)); OnPropertyChanged(nameof(VoiceStatus));
         OnPropertyChanged(nameof(ModelName));
         Status = "Configuración guardada. Pulsa Iniciar para aplicarla.";
     }
@@ -395,7 +414,11 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         OwnGold = snapshot.Gold?.ToString("0") ?? "-";
         OwnHealthColor = HealthColor(snapshot.Health, snapshot.MaxHealth);
         OwnHealthRatio = snapshot.Health is { } health && snapshot.MaxHealth is > 0 ? Math.Clamp(health / snapshot.MaxHealth.Value, 0, 1) : 0;
-        GamePhase = $"Fase estimada: {MatchTacticalContext.EstimatePhase(snapshot).Phase}";
+        var phase = MatchTacticalContext.EstimatePhase(snapshot).Phase switch
+        {
+            "early" => "temprana", "mid" => "media", "late" => "tardía", _ => "desconocida"
+        };
+        GamePhase = $"Fase estimada: {phase}";
         var fallbackRole = SelectedChampion is null ? null : QuestionnaireService.RoleName(Profile.Role);
         var laneRivals = MatchTacticalContext.SamePositionRivals(snapshot, fallbackRole);
         LaneOpponent = laneRivals.Length switch

@@ -6,6 +6,7 @@ public interface ISpeechService : IDisposable
 {
     string[] Voices { get; }
     string? InitializationError { get; }
+    void SetLanguage(string language) { }
     void Speak(string text, string? voice, int volume);
     Task WaitUntilFinishedAsync(CancellationToken cancellationToken);
     void Cancel();
@@ -14,9 +15,11 @@ public interface ISpeechService : IDisposable
 public sealed class SpeechService : ISpeechService
 {
     private SpeechSynthesizer? synthesizer;
+    private (string Name, string Language)[] voices = [];
+    private string language = "es";
     private string lastText = "";
     private Task speechCompletion = Task.CompletedTask;
-    public string[] Voices { get; }
+    public string[] Voices => voices.Where(voice => voice.Language == language).Select(voice => voice.Name).ToArray();
     public string? InitializationError { get; }
 
     public SpeechService()
@@ -24,16 +27,22 @@ public sealed class SpeechService : ISpeechService
         try
         {
             synthesizer = new();
-            Voices = synthesizer.GetInstalledVoices().Where(voice => voice.Enabled
-                && voice.VoiceInfo.Culture.TwoLetterISOLanguageName == "es").Select(voice => voice.VoiceInfo.Name).ToArray();
+            voices = synthesizer.GetInstalledVoices().Where(voice => voice.Enabled)
+                .Select(voice => (voice.VoiceInfo.Name, voice.VoiceInfo.Culture.TwoLetterISOLanguageName)).ToArray();
             synthesizer.SetOutputToDefaultAudioDevice();
         }
         catch (Exception exception) when (exception is InvalidOperationException or System.Runtime.InteropServices.COMException)
         {
             synthesizer?.Dispose(); synthesizer = null;
-            Voices = [];
+            voices = [];
             InitializationError = "Síntesis de voz no disponible.";
         }
+    }
+
+    public void SetLanguage(string value)
+    {
+        language = LocalizationManager.NormalizeLanguage(value);
+        lastText = "";
     }
 
     public void Speak(string text, string? voice, int volume)

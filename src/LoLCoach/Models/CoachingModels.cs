@@ -281,7 +281,10 @@ public static class AdviceValidator
     private static readonly Regex InstructionPattern = new(
         @"\A(?:Ataca\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*\s+con\s+(?:[QWERDF1-7](?:\+[QWERDF1-7]){0,7}|clic derecho)|Ataca\s+(?!.*\scon\s)[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Apoya\s+(?:Top|Mid|Bot)|Congela(?:\s+oleada)?|Empuja\s+(?:lento|r[aá]pido)|(?:Presiona|Farmea)\s+(?:Top|Mid|Bot)|Huye(?:\s+de\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*)?|(?:Aléjate|Alejate|Sepárate|Separate)\s+de\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Compra\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Ve\s+a\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Avanza|Retrocede|Espera|Mejora\s+[QWER]|Usa\s+[QWERDF1-7](?:\s*(?:\+|,)?\s*[QWERDF1-7]){0,7}|Pulsa\s+B|Escóndete)[.!]?\z",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-    private static readonly Regex TacticalPattern = new(@"\ATáctica: [^\r\n]{3,220}\z",
+    private static readonly Regex EnglishInstructionPattern = new(
+        @"\A(?:Attack\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*\s+with\s+(?:[QWERDF1-7](?:\+[QWERDF1-7]){0,7}|right click)|Attack\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Help\s+(?:Top|Mid|Bot)|Freeze(?:\s+the)?\s+wave|Slow push|Fast push|(?:Pressure|Farm)\s+(?:Top|Mid|Bot)|Retreat(?:\s+(?:from\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|to base))?|Stay away from\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Buy\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Go to\s+[\p{L}\p{N}][\p{L}\p{N} '’.-]*|Return to base|Recall(?: to base)?|Advance|Back up|Wait|Upgrade\s+[QWER]|Use\s+[QWERDF1-7](?:\s*(?:\+|,)?\s*[QWERDF1-7]){0,7}|Press\s+B|Hide)[.!]?\z",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex TacticalPattern = new(@"\A(?:Táctica|Tactic): (?<text>[^\r\n]{3,220})\z",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static bool IsValid(string text)
@@ -290,10 +293,12 @@ public static class AdviceValidator
         var normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
         if (normalized.Any(character => char.IsControl(character) && character != '\n')) return false;
         var lines = normalized.Split('\n');
-        if (lines.Length is < 1 or > 2 || !InstructionPattern.IsMatch(lines[0])) return false;
+        if (lines.Length is < 1 or > 2
+            || !(InstructionPattern.IsMatch(lines[0]) || EnglishInstructionPattern.IsMatch(lines[0]))) return false;
         if (lines.Length == 1) return true;
-        return TacticalPattern.IsMatch(lines[1])
-            && lines[1]["Táctica:".Length..].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length <= 15;
+        var tactical = TacticalPattern.Match(lines[1]);
+        return tactical.Success
+            && tactical.Groups["text"].Value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length <= 15;
     }
 }
 

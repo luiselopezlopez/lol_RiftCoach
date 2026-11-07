@@ -20,6 +20,7 @@ public partial class SettingsWindow : Window
         try
         {
             var settings = viewModel.LoadConnectionSettings();
+            LanguageInput.SelectedValue = settings.Language;
             EndpointInput.Text = settings.Endpoint;
             ModelInput.Text = settings.Deployment;
             RequestLimitInput.Text = settings.RequestLimit.ToString(CultureInfo.InvariantCulture);
@@ -45,7 +46,7 @@ public partial class SettingsWindow : Window
         ErrorText.Text = "";
         if (!int.TryParse(RequestLimitInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var limit))
         {
-            ErrorText.Text = "RequestLimit debe ser un número entero entre 1 y 100000.";
+            ErrorText.Text = LocalizationManager.Instance.Translate("RequestLimit debe ser un número entero entre 1 y 100000.");
             RequestLimitInput.Focus();
             return;
         }
@@ -53,7 +54,7 @@ public partial class SettingsWindow : Window
         try
         {
             var key = DeleteKeyInput.IsChecked == true ? "" : string.IsNullOrWhiteSpace(ApiKeyInput.Password) ? null : ApiKeyInput.Password;
-            viewModel.SaveConnectionSettings(EndpointInput.Text, ModelInput.Text, limit, key);
+            viewModel.SaveConnectionSettings(EndpointInput.Text, ModelInput.Text, limit, key, LanguageInput.SelectedValue as string ?? "es");
             DialogResult = true;
         }
         catch (Exception exception) when (IsSettingsError(exception))
@@ -102,12 +103,12 @@ public partial class SettingsWindow : Window
         => exception is ArgumentException or IOException or UnauthorizedAccessException or JsonException
             or CryptographicException or InvalidOperationException or NotSupportedException;
 
-    private void ShowError(Exception exception) => ErrorText.Text = exception switch
+    private void ShowError(Exception exception) => ErrorText.Text = LocalizationManager.Instance.Translate(exception switch
     {
         ArgumentException or InvalidOperationException => exception.Message,
         FileNotFoundException => "No se encontró la versión del prompt seleccionada.",
         JsonException => "El archivo de configuración tiene un formato inválido. Corrígelo antes de guardar.",
         CryptographicException => "No se pudo cifrar la clave. La configuración no se ha guardado.",
         _ => "No se pudo acceder al archivo de configuración. Comprueba la ruta y los permisos."
-    };
+    });
 }
