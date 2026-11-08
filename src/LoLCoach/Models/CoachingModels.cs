@@ -298,13 +298,18 @@ public static class AdviceValidator
         if (lines.Length == 1) return true;
         var tactical = TacticalPattern.Match(lines[1]);
         return tactical.Success
-            && tactical.Groups["text"].Value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length <= 15;
+            && tactical.Groups["text"].Value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length <= 30;
     }
 }
 
 public interface IModelClient : ICoachingClient
 {
     Task<string> ProbeAsync(CancellationToken cancellationToken);
+}
+
+public interface IMatchRecapClient
+{
+    Task<string> CreateMatchRecapAsync(Services.MatchRecapInput input, CancellationToken cancellationToken);
 }
 
 public interface IChampionGuideClient

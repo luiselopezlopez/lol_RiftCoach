@@ -38,6 +38,7 @@ public partial class MainWindow : Window
         foreach (var (id, panel) in panels)
             panel.LayoutEdited += (_, _) => automaticLayouts[activeLayoutMaximized].Remove(id);
         viewModel.ProfileSaved += (_, _) => { TrainingPanel.IsOpen = true; TrainingPanel.BringToFront(); };
+        viewModel.MatchRecapAvailable += (_, _) => { TrainingPanel.IsOpen = true; TrainingPanel.BringToFront(); };
         StateChanged += OnWindowStateChanged;
         Loaded += OnLoaded;
     }

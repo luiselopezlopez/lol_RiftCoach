@@ -64,6 +64,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly Func<Action<ApiDiagnostic>, CancellationToken, Task<IPracticeStateReader>> createReader;
     private readonly Func<IPracticeStateReader, CancellationToken, Task<IObservationSource>> createSource;
     private CancellationTokenSource? active;
+    private CancellationTokenSource? manualMatchEnd;
     private AppSettings settings;
     private int generation;
     private long adviceUpdatedAt;
@@ -138,8 +139,9 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string latencyLabel = "Sin medición";
     [ObservableProperty] private int requests;
     [ObservableProperty] private bool isBusy;
+    [ObservableProperty] private bool hasMatchData;
+    [ObservableProperty] private bool isEndingMatch;
     [ObservableProperty] private bool automaticStartEnabled = true;
-    [ObservableProperty] private bool continuousSending = true;
     [ObservableProperty] private bool allowUnverifiedBotOpponentsForDebugging;
     [ObservableProperty] private bool isWaitingForGame;
     [ObservableProperty] private bool voiceEnabled;
@@ -159,6 +161,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string ownHealthColor = "#A09B8C";
     [ObservableProperty] private double ownHealthRatio;
     [ObservableProperty] private string miniGuide = "";
+    [ObservableProperty] private string matchRecap = "";
+    [ObservableProperty] private bool isMatchRecapExpanded;
+    [ObservableProperty] private bool isMatchRecapAvailable;
+    [ObservableProperty] private double? matchRecapGameTime;
     [ObservableProperty] private string gamePhase = "Sin fase disponible";
     [ObservableProperty] private string rosterStatus = "Esperando datos de jugadores";
     [ObservableProperty] private ImageSource? minimapScene;
@@ -187,7 +193,13 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         if (!value) active?.Cancel();
         else if (initialized && !closed && !IsBusy) StartCommand.Execute(null);
     }
-    partial void OnIsBusyChanged(bool value) { StartCommand.NotifyCanExecuteChanged(); OnPropertyChanged(nameof(CanChangeMode)); }
+    partial void OnIsBusyChanged(bool value)
+    {
+        StartCommand.NotifyCanExecuteChanged(); FinishMatchCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanChangeMode));
+    }
+    partial void OnHasMatchDataChanged(bool value) => FinishMatchCommand.NotifyCanExecuteChanged();
+    partial void OnIsEndingMatchChanged(bool value) => FinishMatchCommand.NotifyCanExecuteChanged();
     private bool CanNextQuestion() => !ShowResults && CurrentQuestion.SelectedIndex >= 0;
 
     [RelayCommand(CanExecute = nameof(CanNextQuestion))]
@@ -242,6 +254,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     }
 
     public event EventHandler? ProfileSaved;
+    public event EventHandler? MatchRecapAvailable;
 
     public AppSettings LoadConnectionSettings() => store.LoadForEditing();
     public string LoadCoachingPrompt() => store.LoadPrompt();
@@ -261,10 +274,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         Status = "Versión del prompt restaurada. Pulsa Iniciar para aplicarla.";
     }
 
-    public void SaveConnectionSettings(string endpoint, string model, int requestLimit, string? apiKey, string language)
+    public void SaveConnectionSettings(string endpoint, string model, string? apiKey, string language)
     {
         if (IsBusy) throw new InvalidOperationException("Pausa la sesión antes de cambiar la configuración.");
-        settings = store.SaveConnectionSettings(endpoint, model, requestLimit, apiKey, language);
+        settings = store.SaveConnectionSettings(endpoint, model, apiKey, language);
         LocalizationManager.Instance.SetLanguage(settings.Language);
         speech.SetLanguage(settings.Language);
         SelectedVoice = speech.Voices.FirstOrDefault();
@@ -311,11 +324,23 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     }
 
     private bool CanStart() => !IsBusy && !closed;
+    private bool CanFinishMatch() => IsBusy && HasMatchData && !IsEndingMatch;
+
+    [RelayCommand(CanExecute = nameof(CanFinishMatch))]
+    private void FinishMatch()
+    {
+        if (!CanFinishMatch()) return;
+        IsEndingMatch = true;
+        Status = "Fin de partida indicado. Generando recap.";
+        manualMatchEnd?.Cancel();
+    }
+
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
     {
         if (!CanStart()) return;
         IsBusy = true; AutomaticStartEnabled = true;
+        HasMatchData = false; IsEndingMatch = false;
         Requests = 0; ClearAdvice(); Scene = null; MinimapScene = null;
         ApiStatus = "Sin consultar"; ApiLastUpdate = "Sin datos"; ApiFields.Clear(); Players.Clear();
         OwnChampion = "Tu campeón"; OwnVitals = "Sin datos de partida"; RosterStatus = "Esperando datos de jugadores";
@@ -323,6 +348,9 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         MiniGuide = ""; GamePhase = "Sin fase disponible"; LaneOpponent = "Rival de línea: sin datos";
         ModelStatus = "Comprobando"; ModelReply = "";
         active = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+        manualMatchEnd?.Dispose();
+        var matchEnd = new CancellationTokenSource();
+        manualMatchEnd = matchEnd;
         var sessionGeneration = ++generation;
         try
         {
@@ -337,10 +365,27 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
                 if (update.WaitingForGame is { } waiting) IsWaitingForGame = waiting;
                 if (update.ModelReply is { } reply) { ModelReply = reply; ModelStatus = "Disponible"; }
                 if (update.MiniGuide is { } guide) MiniGuide = guide;
-                if (update.Snapshot is { } snapshot) ApplySnapshot(snapshot, update.Champion);
+                if (update.MatchRecap is { } recap)
+                {
+                    MatchRecap = recap;
+                    MatchRecapGameTime = update.MatchRecapGameTime;
+                    IsMatchRecapAvailable = true;
+                    IsMatchRecapExpanded = true;
+                    MatchRecapAvailable?.Invoke(this, EventArgs.Empty);
+                }
+                if (update.Snapshot is { } snapshot)
+                {
+                    if (update.Champion is not null && IsMatchRecapAvailable
+                        && MatchRecapGameTime is { } previousGameTime
+                        && snapshot.GameTime is { } currentGameTime
+                        && currentGameTime < previousGameTime - 1)
+                        ClearMatchRecap();
+                    ApplySnapshot(snapshot, update.Champion);
+                }
                 Requests = Math.Max(Requests, update.Requests);
                 if (update.Observation is { } observation)
                 {
+                    HasMatchData = true;
                     Scene = ImageCodec.Decode(observation.Jpeg);
                     MinimapScene = observation.MinimapPng is { Length: > 0 } minimap ? ImageCodec.Decode(minimap) : null;
                     PayloadLabel = $"{(observation.Jpeg.Length + (long)(observation.MinimapPng?.Length ?? 0)) / 1024.0:0.0} KB";
@@ -371,7 +416,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
                 .Select(message => message.Text).TakeLast(CoachingSession.MaxHistory).ToArray();
             await new AutomaticCoachingWorkflow(client, token => createReader(ReportDiagnostic, token), createSource,
                 waitForSpeech: WaitForSpeechAsync)
-                .RunAsync(Profile, ContinuousSending ? null : settings.RequestLimit, progress, active.Token, recentAdvice);
+                .RunAsync(Profile, progress, active.Token, recentAdvice, matchEnd.Token);
         }
         catch (Exception exception) when (IsExpected(exception))
         {
@@ -379,7 +424,12 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             if (ModelStatus != "Disponible") ModelStatus = Status;
             ApiStatus = "Sin conexión activa";
         }
-        finally { IsWaitingForGame = false; AutomaticStartEnabled = false; capture.Dispose(); active?.Dispose(); active = null; IsBusy = false; }
+        finally
+        {
+            IsWaitingForGame = false; AutomaticStartEnabled = false; capture.Dispose(); active?.Dispose(); active = null;
+            if (ReferenceEquals(manualMatchEnd, matchEnd)) manualMatchEnd = null;
+            matchEnd.Dispose(); IsEndingMatch = false; HasMatchData = false; IsBusy = false;
+        }
     }
 
     private async Task<IObservationSource> CreateLiveSourceAsync(IPracticeStateReader reader, CancellationToken cancellationToken)
@@ -490,6 +540,12 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         Advice = ""; AdviceState = "Sin consejo"; AgeLabel = ""; adviceUpdatedAt = 0;
         if (cancelSpeech) speech.Cancel();
     }
+
+    private void ClearMatchRecap()
+    {
+        MatchRecap = ""; MatchRecapGameTime = null;
+        IsMatchRecapAvailable = false; IsMatchRecapExpanded = false;
+    }
     private void Tick()
     {
         if (adviceUpdatedAt == 0) return;
@@ -502,7 +558,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     private static string DescribeError(Exception exception) => exception switch
     {
         ModelOutputException output => output.Message,
-        System.Text.Json.JsonException => "Formato inválido en localsettings.json: Profile debe ser un objeto, null o vacío; RequestLimit debe ser un número.",
+        System.Text.Json.JsonException => "Formato inválido en localsettings.json: Profile debe ser un objeto, null o vacío.",
         CryptographicException => "La ApiKey cifrada de localsettings.json no puede leerse con este usuario de Windows.",
         PracticeUnavailableException practice => practice.Message,
         OperationCanceledException => "Operación detenida o tiempo de espera agotado.",

@@ -28,11 +28,13 @@ public class DashboardTests
         {
             var directory = Path.Combine(Path.GetTempPath(), "LoLCoach-test-" + Guid.NewGuid());
             var store = new SettingsService(directory);
-            store.Save(new AppSettings { RequestLimit = 1 }); store.SaveKey("fake-key-for-tests-only");
+            store.Save(new AppSettings()); store.SaveKey("fake-key-for-tests-only");
             var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             var model = new Model();
             var reader = new Reader();
             var speech = new RecordingSpeech();
+            var firstMessageShown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var secondMessageShown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var captureCalls = 0;
             var verifyAssets = Environment.GetEnvironmentVariable("LOLCOACH_TEST_ASSETS") == "1";
             var viewModel = new DashboardViewModel(store, verifyAssets,
@@ -40,7 +42,11 @@ public class DashboardTests
                 practiceReaderFactory: (report, _) => { reader.Report = report; return Task.FromResult<IPracticeStateReader>(reader); },
                 speechService: speech,
                 observationSourceFactory: (_, _) => { captureCalls++; return Task.FromResult<IObservationSource>(new Source(captureCalls == 1 ? 500 : 200)); });
-            viewModel.ContinuousSending = false;
+            viewModel.Messages.CollectionChanged += (_, _) =>
+            {
+                if (viewModel.Messages.Count >= 1) firstMessageShown.TrySetResult();
+                if (viewModel.Messages.Count >= 2) secondMessageShown.TrySetResult();
+            };
             var window = new MainWindow(viewModel);
             window.Show();
             try
@@ -102,7 +108,7 @@ public class DashboardTests
                 Assert.Contains(window.SessionTabs.Items.OfType<TabItem>(), tab => Equals(tab.Header, "Minimapa"));
                 Assert.Empty(speech.Spoken);
                 model.Finish.SetResult();
-                await viewModel.StartCommand.ExecutionTask!.WaitAsync(TimeSpan.FromSeconds(3));
+                await firstMessageShown.Task.WaitAsync(TimeSpan.FromSeconds(3));
                 await RenderAsync();
                 Assert.Equal(1, viewModel.Requests); Assert.Equal(1, model.StreamCalls); Assert.Equal(1, captureCalls);
                 Assert.Single(speech.Spoken); Assert.Equal(viewModel.Advice, speech.Spoken[0]);
@@ -129,10 +135,15 @@ public class DashboardTests
                 Assert.Equal(200, viewModel.ModelDiagnostics.Count);
                 viewModel.ClearDiagnosticsCommand.Execute(null);
                 Assert.Empty(viewModel.LolDiagnostics); Assert.Empty(viewModel.ModelDiagnostics);
-                viewModel.StopCommand.Execute(null); Assert.Empty(viewModel.Advice);
+                viewModel.StopCommand.Execute(null);
+                await viewModel.StartCommand.ExecutionTask!.WaitAsync(TimeSpan.FromSeconds(3));
+                Assert.Empty(viewModel.Advice);
                 Assert.Same(firstMessage, Assert.Single(viewModel.Messages));
                 Assert.Equal("Avanza.", viewModel.Messages[0].Text);
-                await viewModel.StartCommand.ExecuteAsync(null);
+                var resumed = viewModel.StartCommand.ExecuteAsync(null);
+                await secondMessageShown.Task.WaitAsync(TimeSpan.FromSeconds(3));
+                viewModel.StopCommand.Execute(null);
+                await resumed.WaitAsync(TimeSpan.FromSeconds(3));
                 await RenderAsync();
                 Assert.Equal(2, viewModel.Messages.Count);
                 Assert.Same(firstMessage, viewModel.Messages[0]);
@@ -249,19 +260,13 @@ public class DashboardTests
 
         ExerciseDialog(dialog =>
         {
-            dialog.RequestLimitInput.Text = "1.5";
-            dialog.SaveButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
-            Assert.Contains("entero", dialog.ErrorText.Text);
-            Assert.Equal(original, File.ReadAllText(store.LocalSettingsPath));
             dialog.EndpointInput.Text = "https://configured.openai.azure.com/openai/v1/";
             dialog.ModelInput.Text = "configured-model";
-            dialog.RequestLimitInput.Text = "100000";
             dialog.ApiKeyInput.Password = "fake-dialog-secret";
             dialog.SaveButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
             Assert.True(dialog.DialogResult);
         });
         Assert.Equal("configured-model", viewModel.ModelName);
-        Assert.Equal(100000, store.Load().RequestLimit);
         Assert.Equal("fake-dialog-secret", store.LoadKey());
         Assert.DoesNotContain("fake-dialog-secret", File.ReadAllText(store.LocalSettingsPath));
 
@@ -439,8 +444,11 @@ public class DashboardTests
     }
     private sealed class Source(double health = 500) : IObservationSource
     {
-        public Task<Observation> CaptureAsync(CancellationToken cancellationToken)
+        private bool sampled;
+        public async Task<Observation> CaptureAsync(CancellationToken cancellationToken)
         {
+            if (sampled) await Task.Delay(Timeout.Infinite, cancellationToken);
+            sampled = true;
             var pixels = Enumerable.Repeat((byte)240, 400 * 240 * 4).ToArray();
             var image = WindowCaptureService.CreateFrame(400, 240, pixels, 1600);
             var snapshot = new GameSnapshot(120, 3, health, 800, 600)
@@ -451,10 +459,10 @@ public class DashboardTests
                     new("Lux", "Aliado", false, 4, "MIDDLE", 1, 0, 2, 35, 2, false, 0, []),
                     new("Ashe", "Rival", false, 4, "BOTTOM", 0, 2, 1, 25, 0, true, 12, [new("Botas", 1)])]
             };
-            return Task.FromResult(TestObservations.Create(snapshot, TimeProvider.System.GetTimestamp(), ImageCodec.Encode(image)) with
+            return TestObservations.Create(snapshot, TimeProvider.System.GetTimestamp(), ImageCodec.Encode(image)) with
             {
                 MinimapPng = ImageCodec.EncodePng(new CroppedBitmap(image, new Int32Rect(304, 144, 96, 96)))
-            });
+            };
         }
     }
     private static Task RunStaAsync(Func<Task> action)

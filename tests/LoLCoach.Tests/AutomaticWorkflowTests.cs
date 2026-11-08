@@ -17,16 +17,19 @@ public class AutomaticWorkflowTests
         var readerCalls = 0;
         var captureCalls = 0;
         var reader = new Reader(clock);
+        using var stop = new CancellationTokenSource();
         var workflow = new AutomaticCoachingWorkflow(model,
             _ => { readerCalls++; return Task.FromResult<IPracticeStateReader>(reader); },
             (_, _) => { captureCalls++; return Task.FromResult<IObservationSource>(new Source(clock)); }, clock);
         var progress = new Collector();
-        var running = workflow.RunAsync(new(PlayerRole.Top, "", []), 1, progress, default);
+        var running = workflow.RunAsync(new(PlayerRole.Top, "", []), progress, stop.Token);
         Assert.Equal(0, readerCalls);
         Assert.Equal(0, captureCalls);
         Assert.Equal(0, model.StreamCalls);
         model.Reply.SetResult("Disponible.");
-        await running.WaitAsync(TimeSpan.FromSeconds(3));
+        await progress.FirstAdvice.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        await stop.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(3)));
         Assert.Equal(1, readerCalls);
         Assert.Equal(1, captureCalls);
         Assert.Equal(1, model.StreamCalls);
@@ -42,9 +45,13 @@ public class AutomaticWorkflowTests
         var clock = new FakeTimeProvider();
         var model = new GuideModel(fails);
         var progress = new Collector();
-        await new AutomaticCoachingWorkflow(model, _ => Task.FromResult<IPracticeStateReader>(new Reader(clock)),
+        using var stop = new CancellationTokenSource();
+        var running = new AutomaticCoachingWorkflow(model, _ => Task.FromResult<IPracticeStateReader>(new Reader(clock)),
             (_, _) => Task.FromResult<IObservationSource>(new Source(clock)), clock)
-            .RunAsync(new(PlayerRole.Top, "Garen", []), 1, progress, default);
+            .RunAsync(new(PlayerRole.Top, "Garen", []), progress, stop.Token);
+        await progress.FirstAdvice.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        await stop.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(3)));
         Assert.Equal(1, model.GuideCalls);
         Assert.Equal(1, model.StreamCalls);
         var guideUpdate = Assert.Single(progress.Updates, update => update.MiniGuide is not null);
@@ -61,7 +68,7 @@ public class AutomaticWorkflowTests
         var sourceCalls = 0;
         var running = new AutomaticCoachingWorkflow(model, _ => Task.FromResult<IPracticeStateReader>(new Reader(clock)),
             (_, _) => { sourceCalls++; return Task.FromResult<IObservationSource>(new Source(clock)); }, clock)
-            .RunAsync(new(PlayerRole.Top, "Garen", []), 1, new Collector(), stop.Token);
+            .RunAsync(new(PlayerRole.Top, "Garen", []), new Collector(), stop.Token);
         await model.GuideStarted.Task;
         stop.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
@@ -75,12 +82,15 @@ public class AutomaticWorkflowTests
         var clock = new FakeTimeProvider();
         var model = new GuideModel(false, new(TaskCreationOptions.RunContinuationsAsynchronously));
         var progress = new Collector();
+        using var stop = new CancellationTokenSource();
         var running = new AutomaticCoachingWorkflow(model, _ => Task.FromResult<IPracticeStateReader>(new Reader(clock)),
             (_, _) => Task.FromResult<IObservationSource>(new Source(clock)), clock)
-            .RunAsync(new(PlayerRole.Top, "Garen", []), 1, progress, default);
+            .RunAsync(new(PlayerRole.Top, "Garen", []), progress, stop.Token);
         await model.GuideStarted.Task;
         clock.Advance(TimeSpan.FromSeconds(31));
-        await running.WaitAsync(TimeSpan.FromSeconds(3));
+        await progress.FirstAdvice.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        await stop.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(3)));
         Assert.Equal(1, model.StreamCalls);
         Assert.Contains(progress.Updates, update => update.MiniGuide?.StartsWith("No se pudo") == true);
     }
@@ -115,13 +125,18 @@ public class AutomaticWorkflowTests
         var workflow = new AutomaticCoachingWorkflow(model,
             _ => throw new Xunit.Sdk.XunitException("LoL must not be queried."),
             (_, _) => throw new Xunit.Sdk.XunitException("Capture must not start."));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => workflow.RunAsync(new(PlayerRole.Top, "", []), null, new Collector(), default));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => workflow.RunAsync(new(PlayerRole.Top, "", []), new Collector(), default));
     }
 
     private sealed class Collector : IProgress<SessionUpdate>
     {
         public List<SessionUpdate> Updates { get; } = [];
-        public void Report(SessionUpdate value) => Updates.Add(value);
+        public TaskCompletionSource FirstAdvice { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void Report(SessionUpdate value)
+        {
+            Updates.Add(value);
+            if (value.Advice?.IsFinal == true) FirstAdvice.TrySetResult();
+        }
     }
 
     private sealed class Model : IModelClient
@@ -151,7 +166,12 @@ public class AutomaticWorkflowTests
 
     private sealed class Source(TimeProvider clock) : IObservationSource
     {
-        public Task<Observation> CaptureAsync(CancellationToken cancellationToken)
-            => Task.FromResult(TestObservations.Create(new(120, 3, 500, 800, 600), clock.GetTimestamp()));
+        private bool sampled;
+        public async Task<Observation> CaptureAsync(CancellationToken cancellationToken)
+        {
+            if (sampled) await Task.Delay(Timeout.Infinite, cancellationToken);
+            sampled = true;
+            return TestObservations.Create(new(120, 3, 500, 800, 600), clock.GetTimestamp());
+        }
     }
 }
