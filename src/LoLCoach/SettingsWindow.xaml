@@ -41,10 +41,6 @@
                    TextWrapping="Wrap" Style="{StaticResource Label}"/>
         <CheckBox x:Name="DeleteKeyInput" Content="{loc:Translate 'Borrar la clave guardada'}" Margin="0,8,0,12"
                   Checked="OnDeleteKeyChanged" Unchecked="OnDeleteKeyChanged"/>
-        <Label Content="{loc:Translate '_RequestLimit (1–100000)'}" Target="{Binding ElementName=RequestLimitInput}"/>
-        <TextBox x:Name="RequestLimitInput" AutomationProperties.Name="RequestLimit"/>
-        <TextBlock Text="{loc:Translate 'El límite solo se aplica cuando el envío continuo está desactivado.'}"
-                   TextWrapping="Wrap" Style="{StaticResource Label}" Margin="0,0,0,12"/>
         <TextBlock Text="{loc:Translate 'Los cambios se aplican al pulsar Iniciar.'}" TextWrapping="Wrap"/>
         <TextBlock Text="{Binding LocalSettingsPath}" TextWrapping="Wrap" Style="{StaticResource Label}" Margin="0,8,0,12"/>
         <TextBlock Text="{loc:Translate 'PROMPT DE COACHING'}" Style="{StaticResource Caption}" Margin="0,12,0,0"/>

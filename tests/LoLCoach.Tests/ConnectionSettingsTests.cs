@@ -12,24 +12,19 @@ public class ConnectionSettingsTests : IDisposable
 
     public ConnectionSettingsTests() => store = new SettingsService(directory);
 
-    [Theory]
-    [InlineData(1)]
-    [InlineData(720)]
-    [InlineData(721)]
-    [InlineData(100000)]
-    public void SavesAllConnectionFieldsAndPreservesOtherSettings(int limit)
+    [Fact]
+    public void SavesConnectionFieldsAndPreservesOtherSettings()
     {
         store.Save(new AppSettings { Profile = new(PlayerRole.Top, "Garen", []), AllowUnverifiedBotOpponentsForDebugging = true });
         var layout = new PanelLayout(10, 20, 300, 400, false);
         store.SaveLayout(new Dictionary<string, PanelLayout> { ["training"] = layout });
 
-        var saved = store.SaveConnectionSettings(" https://test.openai.azure.com/openai/v1 ", " new-model ", limit, "fake-new-secret");
+        var saved = store.SaveConnectionSettings(" https://test.openai.azure.com/openai/v1 ", " new-model ", "fake-new-secret");
 
         var reloaded = new SettingsService(directory);
         Assert.Equal("https://test.openai.azure.com/openai/v1/", saved.Endpoint);
         Assert.Equal(saved.Endpoint, reloaded.Load().Endpoint);
         Assert.Equal("new-model", reloaded.Load().Deployment);
-        Assert.Equal(limit, reloaded.Load().RequestLimit);
         Assert.Equal("Garen", reloaded.Load().Profile!.Champion);
         Assert.True(reloaded.Load().AllowUnverifiedBotOpponentsForDebugging);
         Assert.Equal(layout, reloaded.LoadLayout()["training"]);
@@ -45,24 +40,22 @@ public class ConnectionSettingsTests : IDisposable
     {
         store.SaveKey("fake-original-secret");
         var originalKey = JsonDocument.Parse(File.ReadAllText(store.LocalSettingsPath)).RootElement.GetProperty("ApiKey").GetString();
-        store.SaveConnectionSettings(new AppSettings().Endpoint, "changed", 12, null);
+        store.SaveConnectionSettings(new AppSettings().Endpoint, "changed", null);
         using var document = JsonDocument.Parse(File.ReadAllText(store.LocalSettingsPath));
         Assert.Equal(originalKey, document.RootElement.GetProperty("ApiKey").GetString());
         Assert.Equal("fake-original-secret", store.LoadKey());
-        store.SaveConnectionSettings(new AppSettings().Endpoint, "changed", 12, "");
+        store.SaveConnectionSettings(new AppSettings().Endpoint, "changed", "");
         Assert.Null(store.LoadKey());
     }
 
     [Theory]
-    [InlineData("http://test.openai.azure.com/openai/v1/", "model", 12)]
-    [InlineData("https://test.openai.azure.com/openai/v1/", "", 12)]
-    [InlineData("https://test.openai.azure.com/openai/v1/", "model", 0)]
-    [InlineData("https://test.openai.azure.com/openai/v1/", "model", 100001)]
-    public void InvalidInputDoesNotChangeAnySavedField(string endpoint, string model, int limit)
+    [InlineData("http://test.openai.azure.com/openai/v1/", "model")]
+    [InlineData("https://test.openai.azure.com/openai/v1/", "")]
+    public void InvalidInputDoesNotChangeAnySavedField(string endpoint, string model)
     {
         store.SaveKey("fake-original-secret");
         var original = File.ReadAllText(store.LocalSettingsPath);
-        Assert.Throws<ArgumentException>(() => store.SaveConnectionSettings(endpoint, model, limit, "fake-replacement"));
+        Assert.Throws<ArgumentException>(() => store.SaveConnectionSettings(endpoint, model, "fake-replacement"));
         Assert.Equal(original, File.ReadAllText(store.LocalSettingsPath));
     }
 
@@ -72,7 +65,7 @@ public class ConnectionSettingsTests : IDisposable
         Directory.CreateDirectory(directory);
         File.WriteAllText(store.LocalSettingsPath, "{invalid");
         Assert.Throws<JsonException>(() => store.LoadForEditing());
-        Assert.Throws<JsonException>(() => store.SaveConnectionSettings(new AppSettings().Endpoint, "model", 12, null));
+        Assert.Throws<JsonException>(() => store.SaveConnectionSettings(new AppSettings().Endpoint, "model", null));
         Assert.Equal("{invalid", File.ReadAllText(store.LocalSettingsPath));
     }
 

@@ -4,8 +4,8 @@ namespace LoLCoach.Services;
 
 public sealed record MatchPhase(string Phase, double? Minutes, int? Level, bool IsEstimate = true);
 public sealed record MapSide(string Equipo, string BasePropia, string BaseEnemiga);
-public sealed record EnemyTactics(string Champion, int? Level, int? Kills, int? Deaths, int? Assists,
-    bool IsDead, string[] Items);
+public sealed record EnemyTactics(string Champion, string? Position, int? Level, int? Kills, int? Deaths,
+    int? Assists, bool IsDead, string[] Items);
 
 public static class MatchTacticalContext
 {
@@ -50,6 +50,6 @@ public static class MatchTacticalContext
     };
 
     private static EnemyTactics ToEnemyTactics(RosterPlayer player)
-        => new(player.Champion, player.Level, player.Kills, player.Deaths, player.Assists,
+        => new(player.Champion, NormalizePosition(player.Position), player.Level, player.Kills, player.Deaths, player.Assists,
             player.IsDead, player.Items.Select(item => item.Name).ToArray());
 }

@@ -12,28 +12,15 @@ public class CoachingSessionTests
     private static readonly PlayerProfile Profile = new(PlayerRole.Top, "Garen", []);
 
     [Fact]
-    public async Task RequestCapStopsSession()
-    {
-        var clock = new FakeTimeProvider();
-        var progress = new Collector();
-        var client = new ControlledClient();
-        client.Release.TrySetResult();
-        await new CoachingSession(new FakeSource(clock), client, clock).RunAsync(Profile, 1, progress, default);
-        Assert.Equal(1, client.Calls);
-        Assert.Single(progress.Updates, update => update.Advice?.IsFinal == true);
-        Assert.False(progress.Updates.Last().ClearAdvice);
-    }
-
-    [Fact]
     public async Task ExpiredInferenceIsCancelledAndNeverFinalized()
     {
         var clock = new FakeTimeProvider();
         var client = new ControlledClient();
         var progress = new Collector();
-        var run = new CoachingSession(new FakeSource(clock), client, clock).RunAsync(Profile, 1, progress, default);
+        var run = new CoachingSession(new FailingSource(clock), client, clock).RunAsync(Profile, progress, default);
         await client.Started.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));
         clock.Advance(TimeSpan.FromSeconds(11));
-        await run.WaitAsync(TimeSpan.FromSeconds(3));
+        await Assert.ThrowsAsync<PracticeUnavailableException>(() => run.WaitAsync(TimeSpan.FromSeconds(3)));
         Assert.DoesNotContain(progress.Updates, update => update.Advice?.IsFinal == true);
         Assert.Contains(progress.Updates, update => update.Status == "Respuesta caducada");
     }
@@ -45,14 +32,16 @@ public class CoachingSessionTests
         var client = new ControlledClient();
         var progress = new Collector();
         var priorAdvice = Enumerable.Range(1, CoachingSession.MaxHistory + 2).Select(index => $"Ataca objetivo {index}.").ToArray();
-        var run = new CoachingSession(new FakeSource(clock), client, clock, priorAdvice).RunAsync(Profile, 2, progress, default);
+        using var stop = new CancellationTokenSource();
+        var run = new CoachingSession(new FakeSource(clock), client, clock, priorAdvice).RunAsync(Profile, progress, stop.Token);
         Assert.Equal(0, await client.Started.Reader.ReadAsync());
         clock.Advance(TimeSpan.FromSeconds(2));
         await progress.Samples.Reader.ReadAsync();
         Assert.False(progress.Samples.Reader.TryRead(out _));
         client.Release.TrySetResult();
         Assert.Equal(1, await client.Started.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3)));
-        await run.WaitAsync(TimeSpan.FromSeconds(3));
+        await stop.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run.WaitAsync(TimeSpan.FromSeconds(3)));
         Assert.Equal(1, client.MaxActive);
         Assert.Equal(2, client.Calls);
         Assert.Equal(priorAdvice.TakeLast(30), client.History[0]);
@@ -67,12 +56,20 @@ public class CoachingSessionTests
         client.Release.TrySetResult();
         var progress = new Collector();
         var waitStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var secondWaitStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var speechFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var stop = new CancellationTokenSource();
+        var speechWaits = 0;
         var run = new CoachingSession(new FakeSource(clock), client, clock, waitForSpeech: cancellationToken =>
         {
-            waitStarted.TrySetResult();
-            return speechFinished.Task.WaitAsync(cancellationToken);
-        }).RunAsync(Profile, 2, progress, default);
+            if (Interlocked.Increment(ref speechWaits) == 1)
+            {
+                waitStarted.TrySetResult();
+                return speechFinished.Task.WaitAsync(cancellationToken);
+            }
+            secondWaitStarted.TrySetResult();
+            return Task.Delay(Timeout.Infinite, cancellationToken);
+        }).RunAsync(Profile, progress, stop.Token);
 
         await progress.Samples.Reader.ReadAsync();
         await progress.Finals.Reader.ReadAsync();
@@ -81,7 +78,10 @@ public class CoachingSessionTests
         Assert.False(progress.Samples.Reader.TryRead(out _));
 
         speechFinished.SetResult();
-        await run.WaitAsync(TimeSpan.FromSeconds(3));
+        await progress.Finals.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));
+        await secondWaitStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        await stop.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run.WaitAsync(TimeSpan.FromSeconds(3)));
         Assert.Equal(2, client.Calls);
         Assert.True(progress.Samples.Reader.TryRead(out _));
     }
@@ -100,7 +100,7 @@ public class CoachingSessionTests
         {
             waitStarted.TrySetResult();
             return speechFinished.Task.WaitAsync(cancellationToken);
-        }).RunAsync(Profile, null, progress, stop.Token);
+        }).RunAsync(Profile, progress, stop.Token);
 
         await progress.Finals.Reader.ReadAsync();
         await waitStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
@@ -117,7 +117,7 @@ public class CoachingSessionTests
         var client = new ControlledClient();
         var progress = new Collector();
         using var stop = new CancellationTokenSource();
-        var run = new CoachingSession(new FakeSource(clock), client, clock).RunAsync(Profile, 12, progress, stop.Token);
+        var run = new CoachingSession(new FakeSource(clock), client, clock).RunAsync(Profile, progress, stop.Token);
         await client.Started.Reader.ReadAsync();
         await stop.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
@@ -131,7 +131,7 @@ public class CoachingSessionTests
         var clock = new FakeTimeProvider();
         var client = new ControlledClient();
         var progress = new Collector();
-        var run = new CoachingSession(new FailingSource(clock), client, clock).RunAsync(Profile, 12, progress, default);
+        var run = new CoachingSession(new FailingSource(clock), client, clock).RunAsync(Profile, progress, default);
         await client.Started.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));
         client.Release.TrySetResult();
         await Assert.ThrowsAsync<PracticeUnavailableException>(() => run.WaitAsync(TimeSpan.FromSeconds(3)));
@@ -141,14 +141,14 @@ public class CoachingSessionTests
     }
 
     [Fact]
-    public async Task ContinuousModeExceedsFiniteDefaultAndOnlyStopsOnCancellation()
+    public async Task SessionExceedsManyTurnsAndOnlyStopsOnCancellation()
     {
         var clock = new FakeTimeProvider();
         var client = new ControlledClient();
         client.Release.TrySetResult();
         var progress = new Collector();
         using var stop = new CancellationTokenSource();
-        var run = new CoachingSession(new FakeSource(clock), client, clock).RunAsync(Profile, null, progress, stop.Token);
+        var run = new CoachingSession(new FakeSource(clock), client, clock).RunAsync(Profile, progress, stop.Token);
         for (var index = 0; index < 15; index++)
         {
             await progress.Finals.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));
@@ -158,32 +158,6 @@ public class CoachingSessionTests
         await stop.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
         Assert.True(progress.Updates.Last().ClearAdvice);
-        Assert.DoesNotContain(progress.Updates, update => update.Status == "Límite de solicitudes alcanzado");
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(100001)]
-    public async Task InvalidFiniteLimitsRemainRejected(int limit)
-    {
-        var clock = new FakeTimeProvider();
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            new CoachingSession(new FakeSource(clock), new ControlledClient(), clock)
-                .RunAsync(Profile, limit, new Collector(), default));
-    }
-
-    [Theory]
-    [InlineData(721)]
-    [InlineData(100000)]
-    public async Task ExpandedLimitsAreAcceptedBeforeCancellation(int limit)
-    {
-        var clock = new FakeTimeProvider();
-        using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new CoachingSession(new FakeSource(clock), new ControlledClient(), clock)
-                .RunAsync(Profile, limit, new Collector(), cancellation.Token));
     }
 
     private sealed class FailingSource(TimeProvider clock) : IObservationSource

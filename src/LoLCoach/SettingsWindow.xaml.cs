@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -23,7 +22,6 @@ public partial class SettingsWindow : Window
             LanguageInput.SelectedValue = settings.Language;
             EndpointInput.Text = settings.Endpoint;
             ModelInput.Text = settings.Deployment;
-            RequestLimitInput.Text = settings.RequestLimit.ToString(CultureInfo.InvariantCulture);
             CoachingPromptInput.Text = viewModel.LoadCoachingPrompt();
             RefreshPromptVersions();
         }
@@ -44,17 +42,10 @@ public partial class SettingsWindow : Window
     private void OnSave(object sender, RoutedEventArgs args)
     {
         ErrorText.Text = "";
-        if (!int.TryParse(RequestLimitInput.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var limit))
-        {
-            ErrorText.Text = LocalizationManager.Instance.Translate("RequestLimit debe ser un número entero entre 1 y 100000.");
-            RequestLimitInput.Focus();
-            return;
-        }
-
         try
         {
             var key = DeleteKeyInput.IsChecked == true ? "" : string.IsNullOrWhiteSpace(ApiKeyInput.Password) ? null : ApiKeyInput.Password;
-            viewModel.SaveConnectionSettings(EndpointInput.Text, ModelInput.Text, limit, key, LanguageInput.SelectedValue as string ?? "es");
+            viewModel.SaveConnectionSettings(EndpointInput.Text, ModelInput.Text, key, LanguageInput.SelectedValue as string ?? "es");
             DialogResult = true;
         }
         catch (Exception exception) when (IsSettingsError(exception))
