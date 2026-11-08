@@ -8,7 +8,8 @@ public sealed record SessionUpdate(string Status, AdviceUpdate? Advice = null, O
     string? Champion = null, bool? WaitingForGame = null, string? MiniGuide = null);
 
 public sealed class CoachingSession(IObservationSource source, ICoachingClient client, TimeProvider? timeProvider = null,
-    IEnumerable<string>? recentAdvice = null, Func<CancellationToken, Task>? waitForSpeech = null)
+    IEnumerable<string>? recentAdvice = null, Func<CancellationToken, Task>? waitForSpeech = null,
+    Func<string?>? takeSpokenQuestion = null)
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
     private readonly Queue<string> adviceHistory = new((recentAdvice ?? Array.Empty<string>())
@@ -35,6 +36,9 @@ public sealed class CoachingSession(IObservationSource source, ICoachingClient c
                 progress.Report(new("Escena preparada", Observation: observation));
                 var age = clock.GetElapsedTime(observation.CapturedAt);
                 if (age >= MaximumAge) throw new PracticeUnavailableException("La observación ha caducado antes del envío.");
+                var spokenQuestion = takeSpokenQuestion?.Invoke();
+                if (!string.IsNullOrWhiteSpace(spokenQuestion))
+                    observation = observation with { SpokenQuestion = spokenQuestion };
                 requests++;
                 progress.Report(new("Analizando", Requests: requests));
                 using var expiry = new CancellationTokenSource(MaximumAge - age, clock);

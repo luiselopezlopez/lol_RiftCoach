@@ -212,6 +212,9 @@
                   <TextBlock Text="{loc:LocalizedBinding ModelStatus}" Style="{StaticResource Label}" Foreground="{StaticResource Blue2Brush}" Margin="0,0,0,14"/>
                   <TextBlock Margin="0,0,0,14"><Run Text="{loc:Translate 'Solicitudes de sesión: '}" Foreground="{StaticResource TextSecondaryBrush}"/><Run Text="{Binding Requests, Mode=OneWay}" FontFamily="{StaticResource NumberFont}" FontWeight="Bold" Foreground="{StaticResource Gold2Brush}"/></TextBlock>
                   <CheckBox IsChecked="{Binding VoiceEnabled}" IsEnabled="{Binding HasVoice}" Content="{loc:Translate 'Autoplay de voz en español'}"/>
+                  <CheckBox IsChecked="{Binding VoiceQuestionsEnabled}" IsEnabled="{Binding IsBusy}" Margin="0,8,0,0"
+                            Content="{loc:Translate 'Preguntas por voz · palabra clave «LoL»'}"/>
+                  <TextBlock Text="{loc:LocalizedBinding VoiceQuestionStatus}" Style="{StaticResource Label}" TextWrapping="Wrap" Margin="0,2,0,8"/>
                   <ComboBox ItemsSource="{Binding Voices}" SelectedItem="{Binding SelectedVoice}" AutomationProperties.Name="{loc:Translate 'Voz española'}"/>
                   <DockPanel>
                     <TextBlock DockPanel.Dock="Right" Text="{Binding Volume}" FontFamily="{StaticResource NumberFont}" Foreground="{StaticResource Gold2Brush}"/>

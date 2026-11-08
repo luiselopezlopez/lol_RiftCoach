@@ -6,7 +6,8 @@ public sealed class AutomaticCoachingWorkflow(IModelClient model,
     Func<CancellationToken, Task<IPracticeStateReader>> createReader,
     Func<IPracticeStateReader, CancellationToken, Task<IObservationSource>> createSource,
     TimeProvider? timeProvider = null,
-    Func<CancellationToken, Task>? waitForSpeech = null)
+    Func<CancellationToken, Task>? waitForSpeech = null,
+    Func<string?>? takeSpokenQuestion = null)
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
 
@@ -52,7 +53,7 @@ public sealed class AutomaticCoachingWorkflow(IModelClient model,
         }
         var source = await createSource(reader, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        await new CoachingSession(source, model, clock, recentAdvice, waitForSpeech)
+        await new CoachingSession(source, model, clock, recentAdvice, waitForSpeech, takeSpokenQuestion)
             .RunAsync(profile, requestLimit, progress, cancellationToken);
     }
 

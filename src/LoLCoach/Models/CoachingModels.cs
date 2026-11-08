@@ -202,6 +202,7 @@ public sealed record Observation(byte[] Jpeg, GameSnapshot State, long CapturedA
 {
     public VerifiedBotPractice? Practice { get; init; }
     public byte[]? MinimapPng { get; init; }
+    public string? SpokenQuestion { get; init; }
 }
 
 public sealed class VerifiedBotPractice

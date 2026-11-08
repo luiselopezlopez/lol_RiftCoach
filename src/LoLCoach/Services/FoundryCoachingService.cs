@@ -104,10 +104,16 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
             ficha_rival = laneOpponent is not null && laneOpponent.Champion == plannedLaneOpponent
                 ? laneOpponentAbilities : null
         });
+        var voiceQuestion = string.IsNullOrWhiteSpace(observation.SpokenQuestion) ? null : observation.SpokenQuestion.Trim();
+        var responseRules = language == "en" ? EnglishTacticalRules : TacticalCoachingRules;
+        if (voiceQuestion is not null)
+            responseRules += language == "en"
+                ? " The player asked a voice question. Answer it directly and briefly in the second line beginning `Tactic:`, while keeping the first line a valid instruction for the current game state. Do not invent facts."
+                : " El jugador ha hecho una pregunta por voz. Respóndela de forma directa y breve en la segunda línea, empezando por `Táctica:`, y conserva en la primera línea una orden válida para el estado actual. No inventes datos.";
         List<ChatMessage> messages =
         [
             new SystemChatMessage(coachingPrompt),
-            new SystemChatMessage((language == "en" ? EnglishTacticalRules : TacticalCoachingRules) + "\n" + GetResponseLanguageRule(language))
+            new SystemChatMessage(responseRules + "\n" + GetResponseLanguageRule(language))
         ];
         foreach (var previousAdvice in recentAdvice.TakeLast(CoachingSession.MaxHistory))
             messages.Add(new AssistantChatMessage(previousAdvice));
@@ -116,6 +122,9 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
             ChatMessageContentPart.CreateTextPart(context),
             ChatMessageContentPart.CreateImagePart(BinaryData.FromBytes(observation.Jpeg), "image/jpeg", ChatImageDetailLevel.High)
         ];
+        if (voiceQuestion is not null)
+            content.Insert(1, ChatMessageContentPart.CreateTextPart((language == "en"
+                ? "Player voice question for this request: " : "Pregunta hablada del jugador para esta solicitud: ") + voiceQuestion));
         if (observation.MinimapPng is { Length: > 0 } minimap)
         {
             content.Add(ChatMessageContentPart.CreateTextPart(language == "en"

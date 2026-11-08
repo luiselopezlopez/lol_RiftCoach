@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -59,6 +60,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly DataDragonService catalog = new();
     private readonly DispatcherTimer timer;
     private readonly CancellationTokenSource lifetime = new();
+    private readonly ConcurrentQueue<string> pendingVoiceQuestions = new();
     private readonly bool loadCatalog;
     private readonly Func<AppSettings, string, Action<ApiDiagnostic>, IModelClient> createModel;
     private readonly Func<Action<ApiDiagnostic>, CancellationToken, Task<IPracticeStateReader>> createReader;
@@ -71,6 +73,11 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     private bool initialized;
     private bool closed;
     private AdviceMessage? activeMessage;
+    private VoiceQuestionListener? voiceQuestionListener;
+    private Action<string>? voiceQuestionRecognizedHandler;
+    private Action<string>? voiceQuestionFailureHandler;
+    private bool voiceGameDetected;
+    private int voiceQuestionStatusGeneration;
 
     public DashboardViewModel(SettingsService? settingsService = null, bool loadCatalog = true,
         Func<AppSettings, string, Action<ApiDiagnostic>, IModelClient>? coachingClientFactory = null,
@@ -143,6 +150,8 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool allowUnverifiedBotOpponentsForDebugging;
     [ObservableProperty] private bool isWaitingForGame;
     [ObservableProperty] private bool voiceEnabled;
+    [ObservableProperty] private bool voiceQuestionsEnabled;
+    [ObservableProperty] private string voiceQuestionStatus = "Escucha desactivada";
     [ObservableProperty] private string? selectedVoice;
     [ObservableProperty] private int volume = 65;
     [ObservableProperty] private ImageSource? scene;
@@ -182,6 +191,19 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     partial void OnPayloadLabelChanged(string value) => OnPropertyChanged(nameof(PayloadDisplay));
     partial void OnLatencyLabelChanged(string value) => OnPropertyChanged(nameof(LatencyDisplay));
     partial void OnVoiceEnabledChanged(bool value) { if (!value) speech.Cancel(); }
+    partial void OnVoiceQuestionsEnabledChanged(bool value)
+    {
+        voiceQuestionStatusGeneration++;
+        if (!value)
+        {
+            StopVoiceQuestionListening();
+            VoiceQuestionStatus = "Escucha desactivada";
+        }
+        else if (!IsBusy || !voiceGameDetected)
+            VoiceQuestionStatus = "La escucha se activará al detectar la partida";
+        else
+            StartVoiceQuestionListening();
+    }
     partial void OnAutomaticStartEnabledChanged(bool value)
     {
         if (!value) active?.Cancel();
@@ -316,6 +338,9 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     {
         if (!CanStart()) return;
         IsBusy = true; AutomaticStartEnabled = true;
+        voiceGameDetected = false;
+        ClearPendingVoiceQuestions();
+        VoiceQuestionStatus = "Escucha desactivada";
         Requests = 0; ClearAdvice(); Scene = null; MinimapScene = null;
         ApiStatus = "Sin consultar"; ApiLastUpdate = "Sin datos"; ApiFields.Clear(); Players.Clear();
         OwnChampion = "Tu campeón"; OwnVitals = "Sin datos de partida"; RosterStatus = "Esperando datos de jugadores";
@@ -337,7 +362,12 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
                 if (update.WaitingForGame is { } waiting) IsWaitingForGame = waiting;
                 if (update.ModelReply is { } reply) { ModelReply = reply; ModelStatus = "Disponible"; }
                 if (update.MiniGuide is { } guide) MiniGuide = guide;
-                if (update.Snapshot is { } snapshot) ApplySnapshot(snapshot, update.Champion);
+                if (update.Snapshot is { } snapshot)
+                {
+                    voiceGameDetected = true;
+                    ApplySnapshot(snapshot, update.Champion);
+                    if (VoiceQuestionsEnabled) StartVoiceQuestionListening();
+                }
                 Requests = Math.Max(Requests, update.Requests);
                 if (update.Observation is { } observation)
                 {
@@ -370,7 +400,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             var recentAdvice = Messages.Where(message => message.State == "Completo")
                 .Select(message => message.Text).TakeLast(CoachingSession.MaxHistory).ToArray();
             await new AutomaticCoachingWorkflow(client, token => createReader(ReportDiagnostic, token), createSource,
-                waitForSpeech: WaitForSpeechAsync)
+                waitForSpeech: WaitForSpeechAsync, takeSpokenQuestion: TakePendingVoiceQuestion)
                 .RunAsync(Profile, ContinuousSending ? null : settings.RequestLimit, progress, active.Token, recentAdvice);
         }
         catch (Exception exception) when (IsExpected(exception))
@@ -379,7 +409,101 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             if (ModelStatus != "Disponible") ModelStatus = Status;
             ApiStatus = "Sin conexión activa";
         }
-        finally { IsWaitingForGame = false; AutomaticStartEnabled = false; capture.Dispose(); active?.Dispose(); active = null; IsBusy = false; }
+        finally
+        {
+            voiceGameDetected = false;
+            StopVoiceQuestionListening();
+            ClearPendingVoiceQuestions();
+            VoiceQuestionsEnabled = false;
+            VoiceQuestionStatus = "Escucha desactivada";
+            IsWaitingForGame = false; AutomaticStartEnabled = false; capture.Dispose(); active?.Dispose(); active = null; IsBusy = false;
+        }
+    }
+
+    private void StartVoiceQuestionListening()
+    {
+        if (!VoiceQuestionsEnabled || !IsBusy || !voiceGameDetected || voiceQuestionListener?.IsListening == true) return;
+        StopVoiceQuestionListening();
+        var listener = new VoiceQuestionListener(settings.Language);
+        var listenerGeneration = voiceQuestionStatusGeneration;
+        voiceQuestionRecognizedHandler = question => OnVoiceQuestionRecognized(listener, listenerGeneration, question);
+        voiceQuestionFailureHandler = message => OnVoiceQuestionRecognitionFailed(listener, listenerGeneration, message);
+        listener.QuestionRecognized += voiceQuestionRecognizedHandler;
+        listener.RecognitionFailed += voiceQuestionFailureHandler;
+        voiceQuestionListener = listener;
+        if (listener.Start())
+        {
+            VoiceQuestionStatus = "Escuchando · di «LoL» seguido de tu pregunta";
+            return;
+        }
+        VoiceQuestionStatus = listener.ErrorMessage ?? "No se pudo iniciar el reconocimiento de voz. Comprueba el idioma y el micrófono.";
+        listener.QuestionRecognized -= voiceQuestionRecognizedHandler;
+        listener.RecognitionFailed -= voiceQuestionFailureHandler;
+        voiceQuestionRecognizedHandler = null;
+        voiceQuestionFailureHandler = null;
+        listener.Dispose();
+        voiceQuestionListener = null;
+    }
+
+    private void StopVoiceQuestionListening()
+    {
+        if (voiceQuestionListener is not { } listener) return;
+        voiceQuestionListener = null;
+        if (voiceQuestionRecognizedHandler is { } recognizedHandler)
+            listener.QuestionRecognized -= recognizedHandler;
+        if (voiceQuestionFailureHandler is { } failureHandler)
+            listener.RecognitionFailed -= failureHandler;
+        voiceQuestionRecognizedHandler = null;
+        voiceQuestionFailureHandler = null;
+        listener.Dispose();
+    }
+
+    private bool IsCurrentVoiceListener(VoiceQuestionListener listener, int generation)
+        => !closed && IsBusy && VoiceQuestionsEnabled && generation == voiceQuestionStatusGeneration
+            && ReferenceEquals(voiceQuestionListener, listener);
+
+    private void OnVoiceQuestionRecognized(VoiceQuestionListener listener, int generation, string question)
+    {
+        if (!IsCurrentVoiceListener(listener, generation)) return;
+        pendingVoiceQuestions.Enqueue(question);
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null)
+            _ = dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (IsCurrentVoiceListener(listener, generation))
+                    VoiceQuestionStatus = "Pregunta lista para el siguiente envío";
+            }));
+    }
+
+    private void OnVoiceQuestionRecognitionFailed(VoiceQuestionListener listener, int generation, string message)
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null)
+            _ = dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (IsCurrentVoiceListener(listener, generation) && !listener.IsListening)
+                    VoiceQuestionStatus = message;
+            }));
+    }
+
+    private string? TakePendingVoiceQuestion()
+    {
+        if (!pendingVoiceQuestions.TryDequeue(out var question)) return null;
+        var generation = voiceQuestionStatusGeneration;
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null)
+            _ = dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!closed && IsBusy && VoiceQuestionsEnabled && generation == voiceQuestionStatusGeneration
+                    && voiceQuestionListener?.IsListening == true)
+                    VoiceQuestionStatus = "Pregunta enviada al modelo";
+            }));
+        return question;
+    }
+
+    private void ClearPendingVoiceQuestions()
+    {
+        while (pendingVoiceQuestions.TryDequeue(out _)) { }
     }
 
     private async Task<IObservationSource> CreateLiveSourceAsync(IPracticeStateReader reader, CancellationToken cancellationToken)
@@ -480,7 +604,8 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [RelayCommand] private void ClearDiagnostics() { LolDiagnostics.Clear(); ModelDiagnostics.Clear(); }
     [RelayCommand] private void Stop()
     {
-        AutomaticStartEnabled = false; active?.Cancel(); generation++; ClearAdvice(); Scene = null; MinimapScene = null;
+        AutomaticStartEnabled = false; VoiceQuestionsEnabled = false; StopVoiceQuestionListening(); ClearPendingVoiceQuestions();
+        active?.Cancel(); generation++; ClearAdvice(); Scene = null; MinimapScene = null;
         Status = "Detenido"; ApiStatus = "Sin conexión activa";
     }
     private void ClearAdvice(bool cancelSpeech = true)
@@ -519,5 +644,5 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         if (StartCommand.ExecutionTask is { } operation) try { await operation; } catch (Exception exception) when (IsExpected(exception)) { }
         Dispose();
     }
-    public void Dispose() { timer.Stop(); capture.Dispose(); speech.Dispose(); catalog.Dispose(); lifetime.Dispose(); }
+    public void Dispose() { timer.Stop(); StopVoiceQuestionListening(); ClearPendingVoiceQuestions(); capture.Dispose(); speech.Dispose(); catalog.Dispose(); lifetime.Dispose(); }
 }
