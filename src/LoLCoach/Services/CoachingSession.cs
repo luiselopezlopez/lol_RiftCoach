@@ -7,18 +7,19 @@ namespace LoLCoach.Services;
 public sealed record SessionUpdate(string Status, AdviceUpdate? Advice = null, Observation? Observation = null,
     int Requests = 0, bool ClearAdvice = false, string? ModelReply = null, GameSnapshot? Snapshot = null,
     string? Champion = null, bool? WaitingForGame = null, string? MiniGuide = null, string? MatchRecap = null,
-    double? MatchRecapGameTime = null);
+    double? MatchRecapGameTime = null, string? VoiceQuestionStatus = null, int? ImmediateActionsUntilTactical = null);
 
 public sealed class CoachingSession(IObservationSource source, ICoachingClient client, TimeProvider? timeProvider = null,
     IEnumerable<string>? recentAdvice = null, Func<CancellationToken, Task>? waitForSpeech = null,
     Func<string?>? takeSpokenQuestion = null)
 {
+    private const int ImmediateActionsPerTacticalAdvice = 3;
     private const int EndConfirmationAttempts = 4;
     private static readonly TimeSpan EndConfirmationDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan MatchRecapTimeout = TimeSpan.FromSeconds(90);
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
     private readonly Queue<string> adviceHistory = new((recentAdvice ?? Array.Empty<string>())
-        .Where(AdviceValidator.IsValid).TakeLast(MaxHistory));
+        .Where(AdviceValidator.IsValidForHistory).TakeLast(MaxHistory));
     public const int MaxHistory = 30;
     public static readonly TimeSpan MaximumAge = TimeSpan.FromSeconds(10);
 
@@ -30,6 +31,7 @@ public sealed class CoachingSession(IObservationSource source, ICoachingClient c
         var matchDataEnded = false;
         var matchEndedManually = false;
         var recapAvailable = false;
+        var immediateActionsSinceTacticalAdvice = 0;
         Observation? latestObservation = null;
         MatchRecapRecorder? recapRecorder = null;
         try
@@ -64,11 +66,15 @@ public sealed class CoachingSession(IObservationSource source, ICoachingClient c
                     progress.Report(new("Escena preparada", Observation: observation));
                     var age = clock.GetElapsedTime(observation.CapturedAt);
                     if (age >= MaximumAge) throw new PracticeUnavailableException("La observación ha caducado antes del envío.");
+                    var requestMode = immediateActionsSinceTacticalAdvice >= ImmediateActionsPerTacticalAdvice
+                        ? CoachingRequestMode.TacticalAdvice : CoachingRequestMode.ImmediateAction;
+                    observation = observation with { CoachingRequestMode = requestMode };
                     var spokenQuestion = takeSpokenQuestion?.Invoke();
                     if (!string.IsNullOrWhiteSpace(spokenQuestion))
                         observation = observation with { SpokenQuestion = spokenQuestion };
                     requests++;
-                    progress.Report(new("Analizando", Requests: requests));
+                    progress.Report(new("Analizando", Requests: requests,
+                        ImmediateActionsUntilTactical: ImmediateActionsPerTacticalAdvice - immediateActionsSinceTacticalAdvice));
                     using var expiry = new CancellationTokenSource(MaximumAge - age, clock);
                     using var request = CancellationTokenSource.CreateLinkedTokenSource(iteration.Token, expiry.Token);
                     var text = new StringBuilder();
@@ -81,14 +87,17 @@ public sealed class CoachingSession(IObservationSource source, ICoachingClient c
                             text.Append(fragment);
                             if (text.Length > 600) throw new InvalidOperationException("Respuesta demasiado larga; sesión detenida.");
                             progress.Report(new("Borrador", new(text.ToString(), false,
-                                clock.GetElapsedTime(observation.CapturedAt)), Requests: requests));
+                                clock.GetElapsedTime(observation.CapturedAt), requestMode), Requests: requests));
                         }
                         request.Token.ThrowIfCancellationRequested();
                         age = clock.GetElapsedTime(observation.CapturedAt);
                         var finalText = text.ToString().Trim();
-                        if (age < MaximumAge && AdviceValidator.IsValid(finalText))
+                        if (age < MaximumAge && AdviceValidator.IsValid(finalText, requestMode))
                         {
-                            progress.Report(new("Consejo disponible", new(finalText, true, age), Requests: requests));
+                            immediateActionsSinceTacticalAdvice = requestMode == CoachingRequestMode.ImmediateAction
+                                ? immediateActionsSinceTacticalAdvice + 1 : 0;
+                            progress.Report(new("Consejo disponible", new(finalText, true, age, requestMode), Requests: requests,
+                                ImmediateActionsUntilTactical: ImmediateActionsPerTacticalAdvice - immediateActionsSinceTacticalAdvice));
                             adviceHistory.Enqueue(finalText);
                             recapRecorder.RecordAdvice(finalText);
                             while (adviceHistory.Count > MaxHistory) adviceHistory.Dequeue();
@@ -104,6 +113,16 @@ public sealed class CoachingSession(IObservationSource source, ICoachingClient c
                             break;
                         }
                         progress.Report(new("Respuesta caducada", Requests: requests, ClearAdvice: true));
+                    }
+                    catch (System.ClientModel.ClientResultException exception)
+                        when (!lifetime.IsCancellationRequested && IsContentFilterRejection(exception))
+                    {
+                        var status = spokenQuestion is not null
+                            ? "Azure bloqueó la pregunta por el filtro de contenido. La sesión continúa."
+                            : "Azure bloqueó este prompt por el filtro de contenido. La sesión continúa.";
+                        var voiceStatus = spokenQuestion is null ? null
+                            : "Azure bloqueó la pregunta por contenido. Reformúlala para volver a intentarlo.";
+                        progress.Report(new(status, Requests: requests, VoiceQuestionStatus: voiceStatus));
                     }
                 }
                 catch (OperationCanceledException) when (!lifetime.IsCancellationRequested && matchEndToken.IsCancellationRequested)
@@ -136,6 +155,10 @@ public sealed class CoachingSession(IObservationSource source, ICoachingClient c
             progress.Report(new(status, Requests: requests, ClearAdvice: true));
         }
     }
+
+    private static bool IsContentFilterRejection(System.ClientModel.ClientResultException exception)
+        => exception.Message.Contains("content_filter", StringComparison.OrdinalIgnoreCase)
+            || exception.Message.Contains("content management policy", StringComparison.OrdinalIgnoreCase);
 
     private async Task<Observation?> CaptureUntilUnavailableAsync(Observation? latestObservation,
         IProgress<SessionUpdate> progress, int requests, CancellationToken cancellationToken)

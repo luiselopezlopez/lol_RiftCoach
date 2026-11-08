@@ -164,10 +164,21 @@
           </Button>
         </controls:FloatingPanel.HeaderContent>
         <DockPanel>
-          <DockPanel DockPanel.Dock="Top">
-            <Path Data="M4,0 L8,4 L4,8 L0,4 Z" Fill="{StaticResource Blue2Brush}" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"/>
-            <TextBlock Text="{loc:LocalizedBinding AdviceState}" Style="{StaticResource Label}" Foreground="{StaticResource Blue1Brush}"/>
-          </DockPanel>
+          <StackPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+            <DockPanel>
+              <Path Data="M4,0 L8,4 L4,8 L0,4 Z" Fill="{StaticResource Blue2Brush}" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"/>
+              <TextBlock Text="{loc:LocalizedBinding AdviceState}" Style="{StaticResource Label}" Foreground="{StaticResource Blue1Brush}"/>
+            </DockPanel>
+            <TextBlock Text="{loc:LocalizedBinding CoachingCadenceLabel}" Style="{StaticResource Label}" Foreground="{StaticResource Gold2Brush}" Margin="16,2,0,0"/>
+            <Border BorderBrush="{StaticResource Blue2Brush}" BorderThickness="1" Background="{StaticResource CardBackgroundBrush}"
+                    Padding="8" Margin="16,4,0,0"
+                    Visibility="{Binding HasVoiceQuestionText, Converter={StaticResource BoolVisibility}}">
+              <StackPanel>
+                <TextBlock Text="{loc:LocalizedBinding VoiceQuestionStatus}" Style="{StaticResource Label}" Foreground="{StaticResource Blue2Brush}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding VoiceQuestionText}" Margin="0,3,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
           <Expander DockPanel.Dock="Top" Header="{loc:Translate 'Recap de partida'}" IsExpanded="{Binding IsMatchRecapExpanded}"
                     Visibility="{Binding IsMatchRecapAvailable, Converter={StaticResource BoolVisibility}}"
                     MaxHeight="280" Margin="0,0,0,6">

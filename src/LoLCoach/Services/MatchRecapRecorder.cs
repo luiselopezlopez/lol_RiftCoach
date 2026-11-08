@@ -58,7 +58,7 @@ public sealed class MatchRecapRecorder(string champion, string role)
 
     public void RecordAdvice(string text)
     {
-        if (!AdviceValidator.IsValid(text)) return;
+        if (!AdviceValidator.IsValidForHistory(text)) return;
         advice.Enqueue(new(lastObservedGameTime, text.Trim()));
         while (advice.Count > MaximumAdvice) advice.Dequeue();
     }

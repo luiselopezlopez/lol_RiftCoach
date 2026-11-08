@@ -124,6 +124,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     public string ApiLastUpdateLabel => ApiLastUpdate == "Sin datos" ? ApiLastUpdate : $"Última actualización: {ApiLastUpdate}";
     public string PayloadDisplay => $"Imágenes actuales (sin historial): {PayloadLabel}";
     public string LatencyDisplay => $"Frase completa: {LatencyLabel}";
+    public string CoachingCadenceLabel => ImmediateActionsUntilTactical == 0
+        ? LocalizationManager.Instance.Translate("Siguiente: consejo táctico")
+        : string.Format(LocalizationManager.Instance.Translate("Consejo táctico dentro de {0} acciones inmediatas"), ImmediateActionsUntilTactical);
+    public bool HasVoiceQuestionText => !string.IsNullOrWhiteSpace(VoiceQuestionText);
     public string RosterUpdateLabel => $"{RosterStatus} · {ApiLastUpdateLabel}";
     public bool CanChangeMode => !IsBusy;
     public string ProfileLabel => SelectedChampion is null ? "Sin perfil" : $"{QuestionnaireService.RoleName(SelectedChampion.Role)} · {SelectedChampion.Name}";
@@ -145,6 +149,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string payloadLabel = "0 KB";
     [ObservableProperty] private string latencyLabel = "Sin medición";
     [ObservableProperty] private int requests;
+    [ObservableProperty] private int immediateActionsUntilTactical = 3;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private bool hasMatchData;
     [ObservableProperty] private bool isEndingMatch;
@@ -154,6 +159,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool voiceEnabled;
     [ObservableProperty] private bool voiceQuestionsEnabled;
     [ObservableProperty] private string voiceQuestionStatus = "Escucha desactivada";
+    [ObservableProperty] private string voiceQuestionText = string.Empty;
     [ObservableProperty] private string? selectedVoice;
     [ObservableProperty] private int volume = 65;
     [ObservableProperty] private ImageSource? scene;
@@ -196,6 +202,8 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     partial void OnRosterStatusChanged(string value) => OnPropertyChanged(nameof(RosterUpdateLabel));
     partial void OnPayloadLabelChanged(string value) => OnPropertyChanged(nameof(PayloadDisplay));
     partial void OnLatencyLabelChanged(string value) => OnPropertyChanged(nameof(LatencyDisplay));
+    partial void OnImmediateActionsUntilTacticalChanged(int value) => OnPropertyChanged(nameof(CoachingCadenceLabel));
+    partial void OnVoiceQuestionTextChanged(string value) => OnPropertyChanged(nameof(HasVoiceQuestionText));
     partial void OnVoiceEnabledChanged(bool value) { if (!value) speech.Cancel(); }
     partial void OnVoiceQuestionsEnabledChanged(bool value)
     {
@@ -366,6 +374,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         ClearPendingVoiceQuestions();
         VoiceQuestionStatus = "Escucha desactivada";
         HasMatchData = false; IsEndingMatch = false;
+        ImmediateActionsUntilTactical = 3;
         Requests = 0; ClearAdvice(); Scene = null; MinimapScene = null;
         ApiStatus = "Sin consultar"; ApiLastUpdate = "Sin datos"; ApiFields.Clear(); Players.Clear();
         OwnChampion = "Tu campeón"; OwnVitals = "Sin datos de partida"; RosterStatus = "Esperando datos de jugadores";
@@ -388,6 +397,8 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
                 if (closed || sessionGeneration != generation) return;
                 Status = update.Status;
                 if (update.WaitingForGame is { } waiting) IsWaitingForGame = waiting;
+                if (update.VoiceQuestionStatus is { } voiceQuestionStatus) VoiceQuestionStatus = voiceQuestionStatus;
+                if (update.ImmediateActionsUntilTactical is { } remaining) ImmediateActionsUntilTactical = remaining;
                 if (update.ModelReply is { } reply) { ModelReply = reply; ModelStatus = "Disponible"; }
                 if (update.MiniGuide is { } guide) MiniGuide = guide;
                 if (update.MatchRecap is { } recap)
@@ -429,7 +440,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
                     }
                     activeMessage.Text = result.Text;
                     activeMessage.State = result.IsFinal ? "Completo" : "Borrador";
-                    Advice = result.Text; AdviceState = result.IsFinal ? "Texto completo" : "Borrador";
+                    Advice = result.Text;
+                    AdviceState = result.IsFinal
+                        ? result.Mode == CoachingRequestMode.TacticalAdvice ? "Consejo táctico" : "Acción inmediata"
+                        : "Borrador";
                     adviceAge = result.Age; adviceUpdatedAt = TimeProvider.System.GetTimestamp();
                     if (result.IsFinal)
                     {
@@ -515,7 +529,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             _ = dispatcher.BeginInvoke(new Action(() =>
             {
                 if (IsCurrentVoiceListener(listener, generation))
-                    VoiceQuestionStatus = "Pregunta lista para el siguiente envío";
+                {
+                    VoiceQuestionText = question;
+                    VoiceQuestionStatus = "Pregunta reconocida y en cola para el próximo turno";
+                }
             }));
     }
 
@@ -540,7 +557,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             {
                 if (!closed && IsBusy && VoiceQuestionsEnabled && generation == voiceQuestionStatusGeneration
                     && voiceQuestionListener?.IsListening == true)
+                {
+                    VoiceQuestionText = question;
                     VoiceQuestionStatus = "Pregunta enviada al modelo";
+                }
             }));
         return question;
     }
@@ -548,6 +568,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     private void ClearPendingVoiceQuestions()
     {
         while (pendingVoiceQuestions.TryDequeue(out _)) { }
+        VoiceQuestionText = string.Empty;
     }
 
     private async Task<IObservationSource> CreateLiveSourceAsync(IPracticeStateReader reader, CancellationToken cancellationToken)

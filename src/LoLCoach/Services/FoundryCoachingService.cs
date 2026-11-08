@@ -141,14 +141,19 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
         });
         var voiceQuestion = string.IsNullOrWhiteSpace(observation.SpokenQuestion) ? null : observation.SpokenQuestion.Trim();
         var responseRules = language == "en" ? EnglishTacticalRules : TacticalCoachingRules;
+        responseRules += " " + GetCoachingModeRules(observation.CoachingRequestMode, language);
         if (voiceQuestion is not null)
-            responseRules += language == "en"
-                ? " The player asked a voice question. Answer it directly and briefly in the second line beginning `Tactic:`, while keeping the first line a valid instruction for the current game state. Do not invent facts."
-                : " El jugador ha hecho una pregunta por voz. Respóndela de forma directa y breve en la segunda línea, empezando por `Táctica:`, y conserva en la primera línea una orden válida para el estado actual. No inventes datos.";
+            responseRules += observation.CoachingRequestMode == CoachingRequestMode.TacticalAdvice
+                ? language == "en"
+                    ? " The player also asked a voice question. Answer it directly inside the scheduled tactical-advice line without adding another line. Do not invent facts."
+                    : " El jugador también hizo una pregunta por voz. Respóndela directamente dentro de la línea táctica programada, sin añadir otra línea. No inventes datos."
+                : language == "en"
+                    ? " The player asked a voice question. Answer it directly and briefly in a second line beginning `Tactic:`, while keeping the first line a valid instruction for the current game state. Do not invent facts."
+                    : " El jugador ha hecho una pregunta por voz. Respóndela de forma directa y breve en una segunda línea, empezando por `Táctica:`, y conserva en la primera línea una orden válida para el estado actual. No inventes datos.";
         List<ChatMessage> messages =
         [
             new SystemChatMessage(coachingPrompt),
-            new SystemChatMessage(responseRules + "\n" + GetResponseLanguageRule(language))
+            new SystemChatMessage(responseRules + "\n" + GetResponseLanguageRule(language, observation.CoachingRequestMode))
         ];
         foreach (var previousAdvice in recentAdvice.TakeLast(CoachingSession.MaxHistory))
             messages.Add(new AssistantChatMessage(previousAdvice));
@@ -249,9 +254,23 @@ public sealed class FoundryCoachingService : IModelClient, IChampionGuideClient,
     internal const int MaxRecapWords = 1000;
     internal const int MaxRecapCharacters = 10000;
 
-    private static string GetResponseLanguageRule(string language) => language == "en"
-        ? "The coaching prompt and previous advice may be in Spanish. Follow their game-strategy rules, but ignore any conflicting language instructions, Spanish command labels, and Spanish output examples. Write every user-facing word in English, including the command and tactic; use English item names when known. Start with one concise imperative command from the supported game vocabulary: Attack <champion or target> (optionally with <keys> or right click), Help Top/Mid/Bot, Freeze the wave, Slow push, Fast push, Pressure/Farm Top/Mid/Bot, Retreat (from <champion> or to base), Stay away from <champion>, Recall, Return to base, Go to <place>, Buy <item>, Advance, Back up, Wait, Upgrade <Q/W/E/R>, Use <key>, Press B, or Hide. If a second line is useful, prefix it with `Tactic:`. Never answer in Spanish."
-        : "Usa castellano en todas las instrucciones y respuestas para la persona. Empieza con una orden breve y válida del juego. Si hace falta una segunda línea, empieza con `Táctica:`. No respondas en inglés.";
+    private static string GetCoachingModeRules(CoachingRequestMode mode, string language)
+        => (mode, language) switch
+        {
+            (CoachingRequestMode.ImmediateAction, "en") => "This is an immediate-action turn. These mode rules override any conflicting saved prompt. Return one concise valid game command. Do not add tactical advice unless a voice question needs a direct answer on a second `Tactic:` line.",
+            (CoachingRequestMode.ImmediateAction, _) => "Este turno pide una acción inmediata. Estas reglas prevalecen sobre el prompt guardado. Devuelve una sola orden breve y válida del juego. No añadas consejo táctico, salvo que una pregunta por voz requiera una respuesta directa en una segunda línea `Táctica:`.",
+            (CoachingRequestMode.TacticalAdvice, "en") => "This is the scheduled tactical-advice turn after three immediate actions. These mode rules override any conflicting saved prompt. Return exactly one concise strategic recommendation on one line, prefixed `Tactical advice:`. Do not issue an immediate game command.",
+            _ => "Este es el turno de consejo táctico programado después de tres acciones inmediatas. Estas reglas prevalecen sobre el prompt guardado. Devuelve una recomendación estratégica concreta y breve en una sola línea, con el prefijo `Consejo táctico:`. No des una orden de acción inmediata."
+        };
+
+    private static string GetResponseLanguageRule(string language, CoachingRequestMode mode)
+        => (language, mode) switch
+        {
+            ("en", CoachingRequestMode.TacticalAdvice) => "All user-facing text must be in English. Return only the `Tactical advice:` line; do not return Spanish or a game command.",
+            ("en", _) => "The coaching prompt and previous advice may be in Spanish. Follow their game-strategy rules, but ignore any conflicting language instructions, Spanish command labels, and Spanish output examples. Write every user-facing word in English, including the command and tactic; use English item names when known. Start with one concise imperative command from the supported game vocabulary: Attack <champion or target> (optionally with <keys> or right click), Help Top/Mid/Bot, Freeze the wave, Slow push, Fast push, Pressure/Farm Top/Mid/Bot, Retreat (from <champion> or to base), Stay away from <champion>, Recall, Return to base, Go to <place>, Buy <item>, Advance, Back up, Wait, Upgrade <Q/W/E/R>, Use <key>, Press B, or Hide. If a voice question needs an answer, use a second line prefixed `Tactic:`. Never answer in Spanish.",
+            (_, CoachingRequestMode.TacticalAdvice) => "Usa castellano. Devuelve únicamente la línea `Consejo táctico:`; no incluyas una orden del juego ni texto en inglés.",
+            _ => "Usa castellano en todas las instrucciones y respuestas para la persona. Empieza con una orden breve y válida del juego. Solo si responde a una pregunta por voz, añade una segunda línea que empiece con `Táctica:`. No respondas en inglés."
+        };
 
     private static string GetGuideRules(string language) => language == "en"
         ? "This is a video game only. Analyze League of Legends as a fictional match and discuss game mechanics only. " +

@@ -197,12 +197,14 @@ public sealed record RosterPlayer(string Champion, string Relation, bool IsOwn, 
     int? Kills, int? Deaths, int? Assists, int? CreepScore, double? WardScore,
     bool IsDead, double? RespawnTimer, IReadOnlyList<ItemSnapshot> Items);
 
+public enum CoachingRequestMode { ImmediateAction, TacticalAdvice }
 public enum ObservationKind { LiveGame, BotPractice }
 public sealed record Observation(byte[] Jpeg, GameSnapshot State, long CapturedAt, ObservationKind Kind)
 {
     public VerifiedBotPractice? Practice { get; init; }
     public byte[]? MinimapPng { get; init; }
     public string? SpokenQuestion { get; init; }
+    public CoachingRequestMode CoachingRequestMode { get; init; } = CoachingRequestMode.ImmediateAction;
 }
 
 public sealed class VerifiedBotPractice
@@ -244,7 +246,8 @@ public static class BotMatchVerifier
         return new(champion, allowUnverifiedBotOpponentsForDebugging);
     }
 }
-public sealed record AdviceUpdate(string Text, bool IsFinal, TimeSpan Age);
+public sealed record AdviceUpdate(string Text, bool IsFinal, TimeSpan Age,
+    CoachingRequestMode Mode = CoachingRequestMode.ImmediateAction);
 
 public static class ProductPolicy
 {
@@ -287,13 +290,28 @@ public static class AdviceValidator
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     private static readonly Regex TacticalPattern = new(@"\A(?:Táctica|Tactic): (?<text>[^\r\n]{3,220})\z",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    private static readonly Regex TacticalAdvicePattern = new(@"\A(?:Consejo táctico|Tactical advice): (?<text>[^\r\n]{3,320})\z",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static bool IsValid(string text)
+        => IsValid(text, CoachingRequestMode.ImmediateAction);
+
+    public static bool IsValidForHistory(string text)
+        => IsValid(text, CoachingRequestMode.ImmediateAction) || IsValid(text, CoachingRequestMode.TacticalAdvice);
+
+    public static bool IsValid(string text, CoachingRequestMode mode)
     {
         if (string.IsNullOrWhiteSpace(text) || text.Length > 360) return false;
         var normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
         if (normalized.Any(character => char.IsControl(character) && character != '\n')) return false;
         var lines = normalized.Split('\n');
+        if (mode == CoachingRequestMode.TacticalAdvice)
+        {
+            if (lines.Length != 1) return false;
+            var tacticalAdvice = TacticalAdvicePattern.Match(lines[0]);
+            return tacticalAdvice.Success
+                && tacticalAdvice.Groups["text"].Value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length <= 45;
+        }
         if (lines.Length is < 1 or > 2
             || !(InstructionPattern.IsMatch(lines[0]) || EnglishInstructionPattern.IsMatch(lines[0]))) return false;
         if (lines.Length == 1) return true;
