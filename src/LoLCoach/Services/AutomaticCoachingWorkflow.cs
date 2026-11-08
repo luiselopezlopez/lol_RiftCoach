@@ -11,8 +11,9 @@ public sealed class AutomaticCoachingWorkflow(IModelClient model,
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
 
-    public async Task RunAsync(PlayerProfile profile, int? requestLimit, IProgress<SessionUpdate> progress,
-        CancellationToken cancellationToken, IReadOnlyList<string>? recentAdvice = null)
+    public async Task RunAsync(PlayerProfile profile, IProgress<SessionUpdate> progress,
+        CancellationToken cancellationToken, IReadOnlyList<string>? recentAdvice = null,
+        CancellationToken matchEndToken = default)
     {
         progress.Report(new("Comprobando el modelo", WaitingForGame: false));
         using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30), clock))
@@ -54,7 +55,7 @@ public sealed class AutomaticCoachingWorkflow(IModelClient model,
         var source = await createSource(reader, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         await new CoachingSession(source, model, clock, recentAdvice, waitForSpeech, takeSpokenQuestion)
-            .RunAsync(profile, requestLimit, progress, cancellationToken);
+            .RunAsync(profile, progress, cancellationToken, matchEndToken);
     }
 
     private sealed class ForwardProgress<T>(Action<T> report) : IProgress<T>

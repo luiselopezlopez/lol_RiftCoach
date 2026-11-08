@@ -13,7 +13,6 @@ public sealed record AppSettings
     public string Endpoint { get; init; } = "https://luisellmcontainer.openai.azure.com/openai/v1/";
     public string Deployment { get; init; } = "gpt-6-luna";
     public string Language { get; init; } = "es";
-    public int RequestLimit { get; init; } = 12;
     public PlayerProfile? Profile { get; init; }
     public bool AllowUnverifiedBotOpponentsForDebugging { get; init; }
     [JsonIgnore]
@@ -52,7 +51,6 @@ public sealed class SettingsService
         public string Model { get; init; } = new AppSettings().Deployment;
         public string Language { get; init; } = "es";
         public string? ApiKey { get; init; }
-        public int RequestLimit { get; init; } = 12;
         public PlayerProfile? Profile { get; init; }
         public bool AllowUnverifiedBotOpponentsForDebugging { get; init; }
         public Dictionary<string, PanelLayout>? Layout { get; init; }
@@ -119,7 +117,6 @@ public sealed class SettingsService
     private AppSettings ToAppSettings(LocalSettings local) => new()
     {
         Endpoint = local.Endpoint, Deployment = local.Model, Language = LocalizationManager.NormalizeLanguage(local.Language),
-        RequestLimit = local.RequestLimit,
         Profile = local.Profile, AllowUnverifiedBotOpponentsForDebugging = local.AllowUnverifiedBotOpponentsForDebugging
     };
 
@@ -201,7 +198,7 @@ public sealed class SettingsService
         ValidateSettings(settings);
         var local = ReadLocalSettings();
         WriteLocalSettings(local with { Endpoint = settings.Endpoint, Model = settings.Deployment,
-            Language = LocalizationManager.NormalizeLanguage(settings.Language), RequestLimit = settings.RequestLimit, Profile = settings.Profile,
+            Language = LocalizationManager.NormalizeLanguage(settings.Language), Profile = settings.Profile,
             AllowUnverifiedBotOpponentsForDebugging = settings.AllowUnverifiedBotOpponentsForDebugging });
     }
 
@@ -210,19 +207,17 @@ public sealed class SettingsService
         ValidateEndpoint(settings.Endpoint);
         if (string.IsNullOrWhiteSpace(settings.Deployment) || settings.Deployment.Length > 128)
             throw new ArgumentException("Introduce el nombre del despliegue.");
-        if (settings.RequestLimit is < 1 or > 100000)
-            throw new ArgumentException("El límite debe estar entre 1 y 100000 solicitudes.");
     }
 
-    public AppSettings SaveConnectionSettings(string endpoint, string model, int requestLimit, string? apiKey, string? language = null)
+    public AppSettings SaveConnectionSettings(string endpoint, string model, string? apiKey, string? language = null)
     {
-        var settings = new AppSettings { Endpoint = endpoint.Trim(), Deployment = model.Trim(), RequestLimit = requestLimit };
+        var settings = new AppSettings { Endpoint = endpoint.Trim(), Deployment = model.Trim() };
         ValidateSettings(settings);
         var local = ReadLocalSettings();
         var updated = local with
         {
             Endpoint = ValidateEndpoint(settings.Endpoint).AbsoluteUri, Model = settings.Deployment,
-            Language = LocalizationManager.NormalizeLanguage(language ?? local.Language), RequestLimit = settings.RequestLimit,
+            Language = LocalizationManager.NormalizeLanguage(language ?? local.Language),
             ApiKey = apiKey is null ? local.ApiKey : string.IsNullOrWhiteSpace(apiKey) ? null : ProtectKey(apiKey)
         };
         WriteLocalSettings(updated);
@@ -339,7 +334,7 @@ public sealed class SettingsService
             : new AppSettings();
         var local = new LocalSettings
         {
-            Endpoint = previous.Endpoint, Model = previous.Deployment, RequestLimit = previous.RequestLimit, Profile = previous.Profile,
+            Endpoint = previous.Endpoint, Model = previous.Deployment, Profile = previous.Profile,
             Language = LocalizationManager.NormalizeLanguage(previous.Language),
             ApiKey = File.Exists(legacyKeyPath) ? ProtectedKeyPrefix + Convert.ToBase64String(File.ReadAllBytes(legacyKeyPath)) : null
         };

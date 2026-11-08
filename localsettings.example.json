@@ -2,7 +2,6 @@
   "Endpoint": "https://luisellmcontainer.openai.azure.com/openai/v1/",
   "Model": "gpt-4.1-mini",
   "ApiKey": "",
-  "RequestLimit": 12,
   "AllowUnverifiedBotOpponentsForDebugging": false,
   "Profile": null
 }

@@ -588,17 +588,20 @@
           <Grid.RowDefinitions><RowDefinition Height="36"/><RowDefinition Height="*"/></Grid.RowDefinitions>
           <Border Margin="1,1,1,0" Background="{StaticResource TitleBarBrush}">
             <Grid>
-              <Thumb x:Name="PART_TitleBar" Cursor="SizeAll" ToolTip="{loc:Translate 'Arrastra para mover'}">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="38"/></Grid.ColumnDefinitions>
+              <Thumb x:Name="PART_TitleBar" Grid.ColumnSpan="2" Cursor="SizeAll" ToolTip="{loc:Translate 'Arrastra para mover'}">
                 <Thumb.Template><ControlTemplate TargetType="Thumb"><Border Background="Transparent"/></ControlTemplate></Thumb.Template>
               </Thumb>
-              <DockPanel Margin="14,0,44,0" VerticalAlignment="Center" IsHitTestVisible="False">
-                <Path DockPanel.Dock="Left" Data="M5,0 L10,5 L5,10 L0,5 Z" Fill="{StaticResource HextechCoreBrush}" Stroke="{StaticResource Gold2Brush}"
+              <DockPanel Grid.Column="0" Margin="14,0,8,0" VerticalAlignment="Center">
+                <Path DockPanel.Dock="Left" IsHitTestVisible="False" Data="M5,0 L10,5 L5,10 L0,5 Z" Fill="{StaticResource HextechCoreBrush}" Stroke="{StaticResource Gold2Brush}"
                       StrokeThickness="1" Width="11" Height="11" Stretch="Fill" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding Title, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource UpperCase}}"
+                <TextBlock DockPanel.Dock="Left" IsHitTestVisible="False" Text="{Binding Title, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource UpperCase}}"
                            FontFamily="{StaticResource DisplayFont}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource GoldTextBrush}"
                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" VerticalAlignment="Center"/>
+                <ContentPresenter Content="{TemplateBinding HeaderContent}" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                  Margin="8,0,0,0"/>
               </DockPanel>
-              <Button x:Name="PART_Close" Style="{StaticResource PanelCloseButton}" HorizontalAlignment="Right" Width="28" Height="26" Margin="0,0,6,0"
+              <Button x:Name="PART_Close" Grid.Column="1" Style="{StaticResource PanelCloseButton}" HorizontalAlignment="Center" Width="28" Height="26"
                       ToolTip="{loc:Translate 'Cerrar ventana'}" AutomationProperties.Name="{loc:Translate 'Cerrar ventana'}">
                 <icons:PackIconMaterial Kind="Close" Width="11" Height="11"/>
               </Button>

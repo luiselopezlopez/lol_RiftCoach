@@ -6,9 +6,12 @@ using LoLCoach.Models;
 namespace LoLCoach.Services;
 
 public sealed class LiveObservationSource(IPracticeFrameSource capture, IPracticeStateReader game,
-    TimeProvider? timeProvider = null) : IObservationSource
+    TimeProvider? timeProvider = null) : IObservationSource, IPracticeStateReader
 {
     private readonly TimeProvider clock = timeProvider ?? TimeProvider.System;
+
+    public Task<PracticeState> ReadPracticeAsync(CancellationToken cancellationToken)
+        => game.ReadPracticeAsync(cancellationToken);
 
     public async Task<Observation> CaptureAsync(CancellationToken cancellationToken)
     {
